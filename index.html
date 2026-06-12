@@ -6,70 +6,46 @@
   <title>후쿠오카 여행 지도</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
 
-    #map {
-      width: 100vw;
+    /* ── 기본 레이아웃 ── */
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
       height: 100vh;
+      overflow: hidden;
     }
 
-    /* ── 패널 공통 ── */
+    #map { flex: 1; }
+
+    /* ── 패널 (데스크톱) ── */
     #panel {
-      position: fixed;
-      z-index: 10;
-      background: #fff;
+      width: 310px;
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
+      background: #fff;
+      box-shadow: 2px 0 12px rgba(0,0,0,.13);
+      position: relative;
+      transition: margin-left 0.3s cubic-bezier(0.4,0,0.2,1);
+      order: -1;
     }
+    #panel.collapsed { margin-left: -272px; }
 
-    /* ── 데스크톱: 왼쪽 슬라이드 ── */
-    @media (min-width: 769px) {
-      #panel {
-        left: 0; top: 0; bottom: 0;
-        width: 320px;
-        box-shadow: 2px 0 16px rgba(0,0,0,0.15);
-        transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
-      }
-      #panel.collapsed { transform: translateX(-282px); }
-      #panel-toggle {
-        position: absolute;
-        right: -34px; top: 50%;
-        transform: translateY(-50%);
-        width: 34px; height: 60px;
-        background: #fff;
-        border: none;
-        border-radius: 0 12px 12px 0;
-        cursor: pointer;
-        box-shadow: 3px 0 10px rgba(0,0,0,0.12);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 14px; color: #888;
-        transition: color .15s;
-      }
-      #panel-toggle:hover { color: #ff6b35; }
-      #mobile-handle { display: none; }
+    /* 토글 버튼 */
+    #panel-toggle {
+      position: absolute;
+      right: -30px; top: 50%;
+      transform: translateY(-50%);
+      width: 30px; height: 56px;
+      background: #fff;
+      border: none;
+      border-radius: 0 10px 10px 0;
+      cursor: pointer;
+      box-shadow: 3px 0 8px rgba(0,0,0,0.12);
+      font-size: 13px; color: #888;
+      z-index: 5;
     }
-
-    /* ── 모바일: 바텀 시트 ── */
-    @media (max-width: 768px) {
-      #panel {
-        left: 0; right: 0; bottom: 0;
-        height: 62vh;
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -4px 24px rgba(0,0,0,0.15);
-        transition: height 0.3s cubic-bezier(0.4,0,0.2,1);
-      }
-      #panel.collapsed { height: 136px; }
-      #panel-toggle { display: none; }
-      #mobile-handle {
-        display: flex; justify-content: center;
-        padding: 10px 0 2px; cursor: grab; flex-shrink: 0;
-        touch-action: none;
-      }
-      #mobile-handle-bar {
-        width: 40px; height: 5px;
-        background: #ddd; border-radius: 3px;
-      }
-    }
+    #panel-toggle:hover { color: #ff6b35; }
 
     /* ── 헤더 (작게) ── */
     #header {
@@ -78,15 +54,11 @@
       color: #fff;
       flex-shrink: 0;
     }
-    #header h1 { font-size: 13px; font-weight: 800; }
-    #header p  { font-size: 10px; opacity: .8; margin-top: 1px; }
+    #header h1 { font-size: 13px; font-weight: 800; white-space: nowrap; }
+    #header p  { font-size: 10px; opacity: .8; margin-top: 1px; white-space: nowrap; }
 
     /* ── 검색 ── */
-    #search-bar {
-      padding: 8px 10px;
-      border-bottom: 1px solid #eee;
-      flex-shrink: 0;
-    }
+    #search-bar { padding: 8px 10px; border-bottom: 1px solid #eee; flex-shrink: 0; }
     #place-input {
       width: 100%; padding: 8px 12px;
       border: 1.5px solid #ddd; border-radius: 9px;
@@ -101,7 +73,6 @@
       flex: 1; padding: 8px 0; text-align: center;
       font-size: 12px; font-weight: 600; cursor: pointer;
       color: #aaa; border-bottom: 2px solid transparent; margin-bottom: -2px;
-      transition: color .15s;
     }
     .tab.active { color: #ff6b35; border-bottom-color: #ff6b35; }
 
@@ -150,12 +121,7 @@
     .empty-state p { font-size: 12px; line-height: 1.8; }
 
     /* ── 푸터 ── */
-    #footer {
-      padding: 8px 10px;
-      background: #f8f9fa;
-      border-top: 1px solid #eee;
-      flex-shrink: 0;
-    }
+    #footer { padding: 8px 10px; background: #f8f9fa; border-top: 1px solid #eee; flex-shrink: 0; }
     #total-info { font-weight: 700; color: #444; font-size: 11px; margin-bottom: 5px; }
     #route-mode-wrap { display: flex; gap: 5px; margin-bottom: 5px; }
     .mode-btn {
@@ -166,10 +132,7 @@
     .mode-btn.active { background: #ff6b35; border-color: #ff6b35; color: #fff; }
     .mode-btn:hover:not(.active) { border-color: #ff6b35; color: #ff6b35; }
     #route-info { font-size: 10px; color: #888; min-height: 12px; margin-bottom: 4px; }
-    .footer-btn {
-      width: 100%; padding: 5px; background: #fff; border-radius: 7px;
-      font-size: 11px; cursor: pointer; color: #888; margin-top: 3px;
-    }
+    .footer-btn { width: 100%; padding: 5px; background: #fff; border-radius: 7px; font-size: 11px; cursor: pointer; color: #888; margin-top: 3px; }
     #clear-btn { border: 1.5px solid #ddd; }
     #clear-btn:hover { border-color: #e53935; color: #e53935; }
 
@@ -180,23 +143,47 @@
       pointer-events: none; z-index: 9999; white-space: nowrap;
     }
     #toast.show { opacity: 1; }
+
+    /* ── 모바일: 바텀 시트 ── */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+
+      #panel {
+        order: 2;
+        width: 100%;
+        height: 48vh;
+        margin-left: 0 !important;
+        box-shadow: 0 -4px 20px rgba(0,0,0,.12);
+        transition: height 0.3s cubic-bezier(0.4,0,0.2,1);
+      }
+      #panel.collapsed { height: 130px; }
+
+      #panel-toggle { display: none; }
+
+      #mobile-handle {
+        display: flex; justify-content: center;
+        padding: 10px 0 4px; cursor: pointer; flex-shrink: 0;
+      }
+      #mobile-handle-bar { width: 40px; height: 5px; background: #ddd; border-radius: 3px; }
+
+      #map { order: 1; flex: 1; min-height: 0; }
+    }
+
+    @media (min-width: 769px) {
+      #mobile-handle { display: none; }
+    }
   </style>
 </head>
 <body>
 
-<div id="map"></div>
-
 <div id="panel">
-  <!-- 모바일 드래그 핸들 -->
-  <div id="mobile-handle">
+  <div id="mobile-handle" onclick="togglePanel()">
     <div id="mobile-handle-bar"></div>
   </div>
-
-  <!-- 데스크톱 토글 버튼 -->
   <button id="panel-toggle" onclick="togglePanel()">◀</button>
 
   <div id="header">
-    <h1>🇯🇵 후쿠오카 여행 지도 v1.2</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v1.3</h1>
     <p>장소를 검색해서 나만의 경로를 만들어보세요</p>
   </div>
 
@@ -223,6 +210,7 @@
   </div>
 </div>
 
+<div id="map"></div>
 <div id="toast"></div>
 
 <script>
@@ -231,31 +219,22 @@ const getRouteColor = i => ROUTE_COLORS[i % ROUTE_COLORS.length];
 const DB_URL = 'https://jwkang15-1664c-default-rtdb.asia-southeast1.firebasedatabase.app/mapData.json';
 
 let map, directionsService, placesService, autocomplete;
-let savedPlaces    = [];
-let routeOrder     = [];
-let routeMarkers   = [];
-let routePolylines = [];
-let fallbackPolylines = [];
-let openInfoWindow = null;
-let currentTab     = 'places';
-let currentMode    = 'walking';
-let dragSrcIdx     = null;
-let placeIdCounter = 0;
-let isSyncing      = false;
-let panelCollapsed = false;
+let savedPlaces = [], routeOrder = [], routeMarkers = [], routePolylines = [], fallbackPolylines = [];
+let openInfoWindow = null, currentTab = 'places', currentMode = 'walking';
+let dragSrcIdx = null, placeIdCounter = 0, isSyncing = false, panelCollapsed = false;
 
-/* ── 패널 토글 (데스크톱) ── */
+/* ── 패널 토글 ── */
 function togglePanel() {
   panelCollapsed = !panelCollapsed;
   document.getElementById('panel').classList.toggle('collapsed', panelCollapsed);
   document.getElementById('panel-toggle').textContent = panelCollapsed ? '▶' : '◀';
 }
 
-/* ── 모바일 바텀 시트 드래그 ── */
+/* ── 모바일 드래그 ── */
 function initMobileDrag() {
   const handle = document.getElementById('mobile-handle');
   const panel  = document.getElementById('panel');
-  let startY = 0, startH = 0;
+  let startY, startH;
 
   handle.addEventListener('touchstart', e => {
     startY = e.touches[0].clientY;
@@ -264,27 +243,21 @@ function initMobileDrag() {
   }, { passive: true });
 
   handle.addEventListener('touchmove', e => {
-    const dy  = startY - e.touches[0].clientY;
-    const newH = Math.max(100, Math.min(window.innerHeight * 0.88, startH + dy));
-    panel.style.height = newH + 'px';
+    const dy = startY - e.touches[0].clientY;
+    panel.style.height = Math.max(100, Math.min(window.innerHeight * 0.85, startH + dy)) + 'px';
   }, { passive: true });
 
   handle.addEventListener('touchend', () => {
     panel.style.transition = '';
-    const h = panel.offsetHeight;
-    if (h > window.innerHeight * 0.3) {
-      panel.style.height = '62vh';
+    if (panel.offsetHeight > window.innerHeight * 0.28) {
+      panel.style.height = '48vh';
       panel.classList.remove('collapsed');
+      panelCollapsed = false;
     } else {
       panel.classList.add('collapsed');
       panel.style.height = '';
+      panelCollapsed = true;
     }
-  });
-
-  /* 핸들 탭으로 토글 */
-  handle.addEventListener('click', () => {
-    panel.style.height = '';
-    panel.classList.toggle('collapsed');
   });
 }
 
@@ -307,8 +280,7 @@ function saveToCloud() {
 
 async function loadFromCloud() {
   try {
-    const res  = await fetch(DB_URL);
-    const data = await res.json();
+    const data = await (await fetch(DB_URL)).json();
     if (data) applyCloudData(data);
     else renderList();
   } catch(e) { renderList(); }
@@ -319,23 +291,20 @@ function applyCloudData(data) {
   routeMarkers.forEach(m => m.setMap(null));
   routePolylines.forEach(p => p.setMap(null));
   fallbackPolylines.forEach(p => p.setMap(null));
-  savedPlaces = []; routeOrder = [];
-  routeMarkers = []; routePolylines = []; fallbackPolylines = [];
+  savedPlaces = []; routeOrder = []; routeMarkers = []; routePolylines = []; fallbackPolylines = [];
 
   if (data.placeIdCounter) placeIdCounter = data.placeIdCounter;
   if (data.currentMode) {
     currentMode = data.currentMode;
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById('mode-' + currentMode);
-    if (btn) btn.classList.add('active');
+    document.getElementById('mode-' + currentMode)?.classList.add('active');
   }
   if (Array.isArray(data.places)) data.places.forEach(p => restorePlace(p));
   if (Array.isArray(data.routeOrder)) {
     routeOrder = data.routeOrder;
     savedPlaces.forEach(p => { p.inRoute = routeOrder.includes(p.id); });
   }
-  renderList();
-  drawRoute();
+  renderList(); drawRoute();
 }
 
 function startRealtimeSync() {
@@ -350,17 +319,11 @@ function startRealtimeSync() {
   stream.onerror = () => stream.close();
 }
 
-/* ── 장소 복원 ── */
+/* ── 장소 ── */
 function restorePlace(p) {
-  const marker = new google.maps.Marker({
-    position: { lat: p.lat, lng: p.lng },
-    map, icon: makeSavedIcon('#aaa'), title: p.name, zIndex: 100,
-  });
+  const marker = new google.maps.Marker({ position: { lat: p.lat, lng: p.lng }, map, icon: makeSavedIcon('#aaa'), title: p.name, zIndex: 100 });
   const iw = new google.maps.InfoWindow({ content: buildInfoWindowContent(p.id, p.name, p.rating, p.address) });
-  marker.addListener('click', () => {
-    if (openInfoWindow) openInfoWindow.close();
-    iw.open(map, marker); openInfoWindow = iw;
-  });
+  marker.addListener('click', () => { if (openInfoWindow) openInfoWindow.close(); iw.open(map, marker); openInfoWindow = iw; });
   savedPlaces.push({ ...p, marker, iw, inRoute: false });
 }
 
@@ -373,17 +336,13 @@ function buildInfoWindowContent(id, name, rating, addr) {
   </div>`;
 }
 
-/* ── 마커 아이콘 ── */
+/* ── 마커 ── */
 function makeMarkerIcon(color, label) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
     <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24s16-14 16-24C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="1.5"/>
     <text x="16" y="21" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="sans-serif" font-size="13" font-weight="bold">${label}</text>
   </svg>`;
-  return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-    scaledSize: new google.maps.Size(32, 40),
-    anchor: new google.maps.Point(16, 40),
-  };
+  return { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(32,40), anchor: new google.maps.Point(16,40) };
 }
 
 function makeSavedIcon(color) {
@@ -391,65 +350,36 @@ function makeSavedIcon(color) {
     <path d="M12 0C5.373 0 0 5.373 0 12c0 7.5 12 18 12 18S24 19.5 24 12C24 5.373 18.627 0 12 0z" fill="${color}" stroke="white" stroke-width="1.5"/>
     <circle cx="12" cy="12" r="4" fill="white"/>
   </svg>`;
-  return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-    scaledSize: new google.maps.Size(24, 30),
-    anchor: new google.maps.Point(12, 30),
-  };
+  return { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(24,30), anchor: new google.maps.Point(12,30) };
 }
 
 /* ── 초기화 ── */
 function initMap() {
   map = new google.maps.Map(document.getElementById('map'), {
-    center: { lat: 33.5898, lng: 130.4017 },
-    zoom: 13,
-    gestureHandling: 'greedy',
-    mapTypeControl: false,
-    streetViewControl: false,
-    fullscreenControl: false,
+    center: { lat: 33.5898, lng: 130.4017 }, zoom: 13,
+    gestureHandling: 'greedy', mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
   });
-
   directionsService = new google.maps.DirectionsService();
   placesService = new google.maps.places.PlacesService(map);
-
-  autocomplete = new google.maps.places.Autocomplete(
-    document.getElementById('place-input'),
-    { fields: ['name', 'geometry', 'formatted_address', 'rating', 'place_id'] }
-  );
+  autocomplete = new google.maps.places.Autocomplete(document.getElementById('place-input'), { fields: ['name','geometry','formatted_address','rating','place_id'] });
   autocomplete.addListener('place_changed', () => {
     const place = autocomplete.getPlace();
     if (!place.geometry) return;
     addSavedPlace(place);
     document.getElementById('place-input').value = '';
   });
-
   initMobileDrag();
   loadFromCloud().then(() => startRealtimeSync());
 }
 
 /* ── 장소 저장 ── */
 function addSavedPlace(place) {
-  const lat  = place.geometry.location.lat();
-  const lng  = place.geometry.location.lng();
-  const name = place.name;
-
-  if (savedPlaces.find(p => p.name === name && Math.abs(p.lat - lat) < 0.0001)) {
-    showToast('이미 저장된 장소예요'); return;
-  }
-
-  const id     = ++placeIdCounter;
-  const addr   = place.formatted_address || '';
-  const rating = place.rating ? `⭐ ${place.rating}` : '';
-
-  const marker = new google.maps.Marker({
-    position: { lat, lng }, map, icon: makeSavedIcon('#aaa'), title: name, zIndex: 100,
-  });
+  const lat = place.geometry.location.lat(), lng = place.geometry.location.lng(), name = place.name;
+  if (savedPlaces.find(p => p.name === name && Math.abs(p.lat - lat) < 0.0001)) { showToast('이미 저장된 장소예요'); return; }
+  const id = ++placeIdCounter, addr = place.formatted_address || '', rating = place.rating ? `⭐ ${place.rating}` : '';
+  const marker = new google.maps.Marker({ position: { lat, lng }, map, icon: makeSavedIcon('#aaa'), title: name, zIndex: 100 });
   const iw = new google.maps.InfoWindow({ content: buildInfoWindowContent(id, name, rating, addr) });
-  marker.addListener('click', () => {
-    if (openInfoWindow) openInfoWindow.close();
-    iw.open(map, marker); openInfoWindow = iw;
-  });
-
+  marker.addListener('click', () => { if (openInfoWindow) openInfoWindow.close(); iw.open(map, marker); openInfoWindow = iw; });
   savedPlaces.push({ id, name, address: addr, rating, lat, lng, marker, inRoute: false, iw });
   map.panTo({ lat, lng });
   showToast(`"${name}" 저장됐어요 📍`);
@@ -459,31 +389,28 @@ function addSavedPlace(place) {
 /* ── 탭 ── */
 function switchTab(tab) {
   currentTab = tab;
-  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['places','route'][i] === tab));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['places','route'][i] === tab));
   renderList();
 }
 
-/* ── 목록 렌더링 ── */
+/* ── 렌더링 ── */
 function renderList() {
   const list = document.getElementById('place-list');
   list.innerHTML = '';
-
   if (currentTab === 'places') {
     if (!savedPlaces.length) {
       list.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>위 검색창에서 장소를 찾아<br/>저장해보세요</p></div>`;
     } else {
       savedPlaces.forEach(p => {
-        const inRoute = p.inRoute;
         const el = document.createElement('div');
-        el.className = 'place-item' + (inRoute ? ' in-route' : '');
-        el.innerHTML = `
-          <div class="place-info">
+        el.className = 'place-item' + (p.inRoute ? ' in-route' : '');
+        el.innerHTML = `<div class="place-info">
             <div class="place-name">${p.name}</div>
             ${p.rating ? `<div class="place-rating">${p.rating}</div>` : ''}
             ${p.address ? `<div class="place-addr">${p.address}</div>` : ''}
           </div>
           <div class="btn-group">
-            <button class="add-route-btn ${inRoute ? 'active' : ''}" onclick="toggleRoute(${p.id},event)">${inRoute ? '✓' : '+ 경로'}</button>
+            <button class="add-route-btn ${p.inRoute?'active':''}" onclick="toggleRoute(${p.id},event)">${p.inRoute?'✓':'+ 경로'}</button>
             <button class="del-btn" onclick="deleteSavedPlace(${p.id},event)">✕</button>
           </div>`;
         el.addEventListener('click', e => {
@@ -502,11 +429,9 @@ function renderList() {
     } else {
       items.forEach((item, i) => {
         const el = document.createElement('div');
-        el.className = 'place-item draggable-item';
-        el.draggable = true; el.dataset.idx = i;
-        el.innerHTML = `
-          <span class="drag-handle">⠿</span>
-          <span class="place-num-badge" style="background:${getRouteColor(i)}">${i + 1}</span>
+        el.className = 'place-item draggable-item'; el.draggable = true; el.dataset.idx = i;
+        el.innerHTML = `<span class="drag-handle">⠿</span>
+          <span class="place-num-badge" style="background:${getRouteColor(i)}">${i+1}</span>
           <div class="place-info">
             <div class="place-name">${item.name}</div>
             ${item.address ? `<div class="place-addr">${item.address}</div>` : ''}
@@ -518,19 +443,13 @@ function renderList() {
         });
         el.addEventListener('dragstart', () => { dragSrcIdx = i; setTimeout(() => el.classList.add('dragging'), 0); });
         el.addEventListener('dragend',   () => el.classList.remove('dragging'));
-        el.addEventListener('dragover',  e => {
-          e.preventDefault();
-          document.querySelectorAll('.place-item').forEach(x => x.classList.remove('drag-over'));
-          el.classList.add('drag-over');
-        });
+        el.addEventListener('dragover',  e => { e.preventDefault(); document.querySelectorAll('.place-item').forEach(x => x.classList.remove('drag-over')); el.classList.add('drag-over'); });
         el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
         el.addEventListener('drop', e => {
           e.preventDefault(); el.classList.remove('drag-over');
           if (dragSrcIdx === null || dragSrcIdx === i) return;
-          const arr = [...routeOrder];
-          const [moved] = arr.splice(dragSrcIdx, 1);
-          arr.splice(i, 0, moved);
-          routeOrder = arr;
+          const arr = [...routeOrder], [moved] = arr.splice(dragSrcIdx, 1);
+          arr.splice(i, 0, moved); routeOrder = arr;
           savedPlaces.forEach(p => { p.inRoute = routeOrder.includes(p.id); });
           saveToCloud(); renderList(); drawRoute(); dragSrcIdx = null;
         });
@@ -538,32 +457,22 @@ function renderList() {
       });
     }
   }
-
   document.getElementById('total-info').textContent = `경로 ${getRouteItems().length}개 장소`;
 }
 
-/* ── 경로 관련 ── */
-function getRouteItems() {
-  return routeOrder.map(id => savedPlaces.find(p => p.id === id)).filter(Boolean);
-}
+/* ── 경로 ── */
+function getRouteItems() { return routeOrder.map(id => savedPlaces.find(p => p.id === id)).filter(Boolean); }
 
 function toggleRoute(id, e) {
   e.stopPropagation();
-  const p = savedPlaces.find(x => x.id === id);
-  if (!p) return;
-  if (p.inRoute) {
-    routeOrder = routeOrder.filter(x => x !== id);
-    p.inRoute = false; showToast('경로에서 제거됐어요');
-  } else {
-    routeOrder.push(id); p.inRoute = true;
-    showToast(`"${p.name}" 경로 추가 ✅`);
-  }
+  const p = savedPlaces.find(x => x.id === id); if (!p) return;
+  if (p.inRoute) { routeOrder = routeOrder.filter(x => x !== id); p.inRoute = false; showToast('경로에서 제거됐어요'); }
+  else { routeOrder.push(id); p.inRoute = true; showToast(`"${p.name}" 경로 추가 ✅`); }
   saveToCloud(); renderList(); drawRoute();
 }
 
 function addToRoute(id) {
-  const p = savedPlaces.find(x => x.id === id);
-  if (!p || p.inRoute) return;
+  const p = savedPlaces.find(x => x.id === id); if (!p || p.inRoute) return;
   routeOrder.push(id); p.inRoute = true;
   showToast(`"${p.name}" 경로 추가 ✅`);
   if (openInfoWindow) openInfoWindow.close();
@@ -572,17 +481,14 @@ function addToRoute(id) {
 
 function removeFromRoute(idx, e) {
   e.stopPropagation();
-  const id = routeOrder[idx];
-  routeOrder.splice(idx, 1);
-  const p = savedPlaces.find(x => x.id === id);
-  if (p) p.inRoute = false;
+  const id = routeOrder[idx]; routeOrder.splice(idx, 1);
+  const p = savedPlaces.find(x => x.id === id); if (p) p.inRoute = false;
   saveToCloud(); renderList(); drawRoute();
 }
 
 function deleteSavedPlace(id, e) {
   e.stopPropagation();
-  const idx = savedPlaces.findIndex(p => p.id === id);
-  if (idx === -1) return;
+  const idx = savedPlaces.findIndex(p => p.id === id); if (idx === -1) return;
   savedPlaces[idx].marker.setMap(null);
   routeOrder = routeOrder.filter(x => x !== id);
   savedPlaces.splice(idx, 1);
@@ -593,13 +499,11 @@ function deleteSavedPlace(id, e) {
 function clearRoute() {
   if (!routeOrder.length) return;
   if (!confirm('경로를 모두 초기화할까요?')) return;
-  routeOrder = [];
-  savedPlaces.forEach(p => p.inRoute = false);
+  routeOrder = []; savedPlaces.forEach(p => p.inRoute = false);
   saveToCloud(); renderList(); drawRoute();
   showToast('경로 초기화됐어요');
 }
 
-/* ── 이동 수단 ── */
 function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -607,28 +511,22 @@ function setMode(mode) {
   saveToCloud(); drawRoute();
 }
 
-/* ── 수직 오프셋 (겹침 방지) ── */
+/* ── 오프셋 (겹침 방지) ── */
 function applyPerpendicularOffset(path, offsetMeters) {
   if (Math.abs(offsetMeters) < 0.01 || path.length < 2) return path;
   const R = 6371000;
   const getLat = p => typeof p.lat === 'function' ? p.lat() : p.lat;
   const getLng = p => typeof p.lng === 'function' ? p.lng() : p.lng;
-
   return path.map((point, i) => {
-    const prev = path[Math.max(0, i - 1)];
-    const next = path[Math.min(path.length - 1, i + 1)];
-    const lat1 = getLat(prev) * Math.PI / 180, lng1 = getLng(prev) * Math.PI / 180;
-    const lat2 = getLat(next) * Math.PI / 180, lng2 = getLng(next) * Math.PI / 180;
-    const dLng = lng2 - lng1;
-    const y = Math.sin(dLng) * Math.cos(lat2);
-    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-    const perpBearing = Math.atan2(y, x) + Math.PI / 2;
-    const curLat = getLat(point) * Math.PI / 180;
-    const dlat = (offsetMeters / R) * Math.cos(perpBearing);
-    const dlng = (offsetMeters / R) * Math.sin(perpBearing) / Math.cos(curLat);
+    const prev = path[Math.max(0,i-1)], next = path[Math.min(path.length-1,i+1)];
+    const lat1 = getLat(prev)*Math.PI/180, lng1 = getLng(prev)*Math.PI/180;
+    const lat2 = getLat(next)*Math.PI/180, lng2 = getLng(next)*Math.PI/180;
+    const dLng = lng2-lng1;
+    const perpBearing = Math.atan2(Math.sin(dLng)*Math.cos(lat2), Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng)) + Math.PI/2;
+    const curLat = getLat(point)*Math.PI/180;
     return {
-      lat: getLat(point) + dlat * 180 / Math.PI,
-      lng: getLng(point) + dlng * 180 / Math.PI,
+      lat: getLat(point) + (offsetMeters/R)*Math.cos(perpBearing)*180/Math.PI,
+      lng: getLng(point) + (offsetMeters/R)*Math.sin(perpBearing)/Math.cos(curLat)*180/Math.PI,
     };
   });
 }
@@ -641,24 +539,13 @@ function drawRoute() {
   document.getElementById('route-info').textContent = '';
 
   const items = getRouteItems();
-  savedPlaces.forEach(p => {
-    const routeIdx = routeOrder.indexOf(p.id);
-    p.marker.setIcon(makeSavedIcon(routeIdx >= 0 ? getRouteColor(routeIdx) : '#bbb'));
-  });
+  savedPlaces.forEach(p => { const idx = routeOrder.indexOf(p.id); p.marker.setIcon(makeSavedIcon(idx >= 0 ? getRouteColor(idx) : '#bbb')); });
   if (!items.length) return;
 
   items.forEach((item, i) => {
-    const marker = new google.maps.Marker({
-      position: { lat: item.lat, lng: item.lng }, map,
-      icon: makeMarkerIcon(getRouteColor(i), i + 1),
-      title: `${i + 1}. ${item.name}`, zIndex: 1000 + i,
-    });
-    marker.addListener('click', () => {
-      if (openInfoWindow) openInfoWindow.close();
-      const iw = new google.maps.InfoWindow({ content: `<b>${i + 1}. ${item.name}</b>` });
-      iw.open(map, marker); openInfoWindow = iw;
-    });
-    routeMarkers.push(marker);
+    const m = new google.maps.Marker({ position: { lat: item.lat, lng: item.lng }, map, icon: makeMarkerIcon(getRouteColor(i), i+1), title: `${i+1}. ${item.name}`, zIndex: 1000+i });
+    m.addListener('click', () => { if (openInfoWindow) openInfoWindow.close(); const iw = new google.maps.InfoWindow({ content: `<b>${i+1}. ${item.name}</b>` }); iw.open(map, m); openInfoWindow = iw; });
+    routeMarkers.push(m);
   });
 
   const bounds = new google.maps.LatLngBounds();
@@ -667,55 +554,38 @@ function drawRoute() {
   if (items.length < 2) return;
 
   document.getElementById('route-info').textContent = '경로 계산 중...';
-
   const modeMap = { walking: 'WALKING', transit: 'TRANSIT', cycling: 'BICYCLING' };
-  const request = {
-    origin:      { lat: items[0].lat,               lng: items[0].lng },
-    destination: { lat: items[items.length-1].lat,  lng: items[items.length-1].lng },
-    waypoints:   items.slice(1,-1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true })),
-    travelMode:  google.maps.TravelMode[modeMap[currentMode]],
+  const req = {
+    origin: { lat: items[0].lat, lng: items[0].lng },
+    destination: { lat: items[items.length-1].lat, lng: items[items.length-1].lng },
+    waypoints: items.slice(1,-1).map(p => ({ location: { lat: p.lat, lng: p.lng }, stopover: true })),
+    travelMode: google.maps.TravelMode[modeMap[currentMode]],
   };
-  if (currentMode === 'transit') {
-    request.transitOptions = { departureTime: new Date() };
-  }
+  if (currentMode === 'transit') req.transitOptions = { departureTime: new Date() };
 
-  directionsService.route(request, (result, status) => {
+  directionsService.route(req, (result, status) => {
     if (status === 'OK') {
       const legs = result.routes[0].legs;
       legs.forEach((leg, legIdx) => {
-        const color = getRouteColor(legIdx + 1);
-        const path  = [];
-        leg.steps.forEach(step => step.path.forEach(ll => path.push(ll)));
-        const offsetMeters = (legIdx - (legs.length - 1) / 2) * 8;
-        const offsetPath = applyPerpendicularOffset(path, offsetMeters);
-        const polyline = new google.maps.Polyline({
-          path: offsetPath, map,
-          strokeColor: color, strokeWeight: 5, strokeOpacity: 0.9, zIndex: 100 + legIdx,
-          icons: [{ icon: {
-            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-            scale: 3.5, strokeColor: '#fff', strokeWeight: 1, fillColor: color, fillOpacity: 1,
-          }, offset: '20%', repeat: '250px' }],
-        });
-        routePolylines.push(polyline);
-      });
-      let dist = 0, dur = 0;
-      legs.forEach(l => { dist += l.distance.value; dur += l.duration.value; });
-      const km  = (dist / 1000).toFixed(1);
-      const min = Math.round(dur / 60);
-      const time = min >= 60 ? `${Math.floor(min/60)}시간 ${min%60}분` : `${min}분`;
-      const label = { walking:'도보', transit:'대중교통', cycling:'자전거' }[currentMode];
-      document.getElementById('route-info').textContent = `${label} · 총 ${km}km · 약 ${time}`;
-    } else {
-      items.forEach((item, i) => {
-        if (i === items.length - 1) return;
-        const next = items[i + 1];
-        fallbackPolylines.push(new google.maps.Polyline({
-          path: [{ lat: item.lat, lng: item.lng }, { lat: next.lat, lng: next.lng }],
-          map, strokeColor: getRouteColor(i + 1), strokeWeight: 4, strokeOpacity: 0.7, geodesic: true,
+        const color = getRouteColor(legIdx+1);
+        const path = []; leg.steps.forEach(s => s.path.forEach(ll => path.push(ll)));
+        const offsetPath = applyPerpendicularOffset(path, (legIdx-(legs.length-1)/2)*8);
+        routePolylines.push(new google.maps.Polyline({
+          path: offsetPath, map, strokeColor: color, strokeWeight: 5, strokeOpacity: 0.9, zIndex: 100+legIdx,
+          icons: [{ icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3.5, strokeColor: '#fff', strokeWeight: 1, fillColor: color, fillOpacity: 1 }, offset: '20%', repeat: '250px' }],
         }));
       });
-      const msg = currentMode === 'transit' ? '대중교통 정보 없음 — 직선 표시' : '직선 경로로 표시됨';
-      document.getElementById('route-info').textContent = msg;
+      let dist = 0, dur = 0; result.routes[0].legs.forEach(l => { dist += l.distance.value; dur += l.duration.value; });
+      const km = (dist/1000).toFixed(1), min = Math.round(dur/60);
+      const time = min >= 60 ? `${Math.floor(min/60)}시간 ${min%60}분` : `${min}분`;
+      document.getElementById('route-info').textContent = `${{walking:'도보',transit:'대중교통',cycling:'자전거'}[currentMode]} · 총 ${km}km · 약 ${time}`;
+    } else {
+      items.forEach((item, i) => {
+        if (i === items.length-1) return;
+        const next = items[i+1];
+        fallbackPolylines.push(new google.maps.Polyline({ path: [{ lat: item.lat, lng: item.lng }, { lat: next.lat, lng: next.lng }], map, strokeColor: getRouteColor(i+1), strokeWeight: 4, strokeOpacity: 0.7, geodesic: true }));
+      });
+      document.getElementById('route-info').textContent = currentMode === 'transit' ? '대중교통 정보 없음 — 직선 표시' : '직선 경로로 표시됨';
     }
   });
 }
@@ -723,8 +593,7 @@ function drawRoute() {
 /* ── 유틸 ── */
 let toastTimer;
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 </script>
