@@ -17,7 +17,7 @@
       position: fixed;
       bottom: 0; left: 0; right: 0;
       z-index: 100;
-      height: 45vh;
+      height: 50vh;
       display: flex;
       flex-direction: column;
       background: #fff;
@@ -84,8 +84,6 @@
     #footer { padding:8px 10px; background:#f8f9fa; border-top:1px solid #eee; flex-shrink:0; }
     #total-info { font-weight:700; color:#444; font-size:12px; margin-bottom:4px; }
     #route-info { font-size:11px; color:#888; min-height:14px; margin-bottom:4px; }
-    #clear-btn { width:100%; padding:7px; background:#fff; border:1.5px solid #ddd; border-radius:8px; font-size:12px; cursor:pointer; color:#888; }
-    #clear-btn:active { border-color:#e53935; color:#e53935; }
 
     /* 데스크톱: 사이드 패널 */
     @media (min-width: 769px) {
@@ -129,7 +127,6 @@
   <div id="footer">
     <div id="total-info">경로 0개 장소</div>
     <div id="route-info"></div>
-    <button id="clear-btn" onclick="clearRoute()">경로 전체 초기화</button>
   </div>
 </div>
 
@@ -166,10 +163,13 @@ function initDrag() {
     panel.style.transition = 'none';
   }, { passive: true });
 
+  /* 핸들 높이(접혔을 때 최소) */
+  const MIN_H = 56;
+
   handle.addEventListener('touchmove', e => {
     moved = true;
     const dy   = startY - e.touches[0].clientY;
-    const newH = Math.max(80, Math.min(window.innerHeight * 0.95, startH + dy));
+    const newH = Math.max(MIN_H, Math.min(window.innerHeight * 0.95, startH + dy));
     panel.style.height = newH + 'px';
   }, { passive: true });
 
@@ -177,15 +177,10 @@ function initDrag() {
     panel.style.transition = 'height .25s ease-out';
     const h = panel.offsetHeight;
     if (!moved) {
-      /* 탭: 토글 */
-      panel.style.height = h < window.innerHeight * 0.55 ? '85vh' : '45vh';
-    } else {
-      /* 드래그 방향으로 스냅: 50px 이상 내리면 닫기, 올리면 열기 */
-      const delta = startH - h; // 양수=내림, 음수=올림
-      if (delta > 50)       panel.style.height = '45vh';
-      else if (delta < -50) panel.style.height = '85vh';
-      else                  panel.style.height = h < window.innerHeight * 0.55 ? '45vh' : '85vh';
+      /* 탭: 접힘 ↔ 펼침 토글 */
+      panel.style.height = h <= MIN_H + 20 ? '50vh' : MIN_H + 'px';
     }
+    /* 드래그한 경우엔 그 위치에 그대로 고정 (스냅 없음) */
   });
 }
 
@@ -391,15 +386,29 @@ function drawRoute() {
 
   for(let i=0;i<segCount;i++){
     const from=items[i], to=items[i+1], mode=getSegmentMode(i);
-    const req={origin:{lat:from.lat,lng:from.lng},destination:{lat:to.lat,lng:to.lng},travelMode:google.maps.TravelMode[MODE_API[mode]]};
-    if(mode==='transit') req.transitOptions={departureTime:new Date()};
-    (idx=>{
-      directionsService.route(req,(result,status)=>{
-        segResults[idx]={result,status,mode};
-        if(++done===segCount) renderAllSegments(items,segResults);
-      });
-    })(i);
+    requestSegment(from, to, mode, (idx => (result, status, usedMode) => {
+      segResults[idx] = { result, status, mode: usedMode };
+      if(++done===segCount) renderAllSegments(items, segResults);
+    })(i));
   }
+}
+
+/* 한 구간 경로 요청. transit 실패 시 도보로 자동 대체 (구글지도 방식) */
+function requestSegment(from, to, mode, cb) {
+  const buildReq = m => {
+    const req = { origin:{lat:from.lat,lng:from.lng}, destination:{lat:to.lat,lng:to.lng}, travelMode:google.maps.TravelMode[MODE_API[m]] };
+    if(m==='transit') req.transitOptions = { departureTime:new Date() };
+    return req;
+  };
+  directionsService.route(buildReq(mode), (result, status) => {
+    if(status==='OK') { cb(result, status, mode); return; }
+    if(mode==='transit') {
+      /* 대중교통 정보 없으면 → 도보 실제 경로로 대체 */
+      directionsService.route(buildReq('walking'), (r2, s2) => cb(r2, s2, 'walking'));
+    } else {
+      cb(result, status, mode);
+    }
+  });
 }
 
 function renderAllSegments(items, segs) {
