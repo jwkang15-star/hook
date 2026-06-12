@@ -6,12 +6,11 @@
   <title>후쿠오카 여행 지도</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; }
+    body { font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
 
     #map {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
+      width: 100vw;
+      height: 100vh;
     }
 
     /* ── 패널 공통 ── */
@@ -400,7 +399,7 @@ function makeSavedIcon(color) {
 }
 
 /* ── 초기화 ── */
-async function initMap() {
+function initMap() {
   map = new google.maps.Map(document.getElementById('map'), {
     center: { lat: 33.5898, lng: 130.4017 },
     zoom: 13,
@@ -425,8 +424,7 @@ async function initMap() {
   });
 
   initMobileDrag();
-  await loadFromCloud();
-  startRealtimeSync();
+  loadFromCloud().then(() => startRealtimeSync());
 }
 
 /* ── 장소 저장 ── */
@@ -731,6 +729,6 @@ function showToast(msg) {
 }
 </script>
 
-<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDUQaw4d6Gze0z5_PYSqa07LyL1jdFCo0c&libraries=places&language=ko&callback=initMap"></script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB-w7_y4wk_4Hp7QoeA7zfCAfAyDvz-f4E&libraries=places&language=ko&callback=initMap"></script>
 </body>
 </html>
