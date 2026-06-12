@@ -9,8 +9,8 @@
     body { font-family: 'Segoe UI', sans-serif; overflow: hidden; }
 
     /* 전체화면 지도 */
-    #map { position: fixed; inset: 0; z-index: 0; }
-    #map-error { position: fixed; inset: 0; z-index: 1; display: none; align-items: center; justify-content: center; flex-direction: column; background: #fff3f3; color: #e53935; font-size: 13px; text-align: center; padding: 20px; }
+    #map { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+    #map-error { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; display: none; align-items: center; justify-content: center; flex-direction: column; background: #fff3f3; color: #e53935; font-size: 13px; text-align: center; padding: 20px; }
 
     /* 오프스크린 패널 — 지도 위 떠있는 시트 */
     #panel {
@@ -173,13 +173,18 @@ function initDrag() {
     panel.style.height = newH + 'px';
   }, { passive: true });
 
-  handle.addEventListener('touchend', () => {
-    panel.style.transition = '';
+  handle.addEventListener('touchend', e => {
+    panel.style.transition = 'height .25s ease-out';
     const h = panel.offsetHeight;
     if (!moved) {
+      /* 탭: 토글 */
       panel.style.height = h < window.innerHeight * 0.55 ? '85vh' : '45vh';
     } else {
-      panel.style.height = h > window.innerHeight * 0.55 ? '85vh' : '45vh';
+      /* 드래그 방향으로 스냅: 50px 이상 내리면 닫기, 올리면 열기 */
+      const delta = startH - h; // 양수=내림, 음수=올림
+      if (delta > 50)       panel.style.height = '45vh';
+      else if (delta < -50) panel.style.height = '85vh';
+      else                  panel.style.height = h < window.innerHeight * 0.55 ? '45vh' : '85vh';
     }
   });
 }
