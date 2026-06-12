@@ -31,10 +31,6 @@
       transition: border-color .15s;
     }
     #place-input:focus { border-color: #ff6b35; }
-    #search-icon {
-      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-      color: #bbb; font-size: 16px; pointer-events: none;
-    }
 
     #tabs { display: flex; border-bottom: 2px solid #eee; }
     .tab {
@@ -104,7 +100,6 @@
       width: 100%; padding: 6px; background: #fff; border-radius: 7px;
       font-size: 11px; cursor: pointer; color: #888; margin-top: 4px;
     }
-    #optimize-btn { border: 1.5px solid #667eea; color: #667eea; font-weight: 600; }
     #clear-btn    { border: 1.5px solid #ddd; }
     #clear-btn:hover { border-color: #e53935; color: #e53935; }
 
@@ -164,17 +159,78 @@
 <script>
 const ROUTE_COLORS = ['#e53935','#1e88e5','#43a047','#fb8c00','#8e24aa','#00acc1','#f4511e','#546e7a'];
 const getRouteColor = i => ROUTE_COLORS[i % ROUTE_COLORS.length];
+const STORAGE_KEY = 'fukuoka_travel_v2';
 
-let map, directionsService, directionsRenderer, placesService, autocomplete;
-let savedPlaces  = [];   // { id, name, address, rating, lat, lng, marker, inRoute }
-let routeOrder   = [];   // savedPlace ids in route order
-let routeMarkers = [];
-let fallbackPolyline = null;
-let openInfoWindow   = null;
-let currentTab  = 'places';
-let currentMode = 'walking';
-let dragSrcIdx  = null;
+let map, directionsService, placesService, autocomplete;
+let savedPlaces    = [];
+let routeOrder     = [];
+let routeMarkers   = [];
+let routePolylines = [];
+let fallbackPolylines = [];
+let openInfoWindow = null;
+let currentTab     = 'places';
+let currentMode    = 'walking';
+let dragSrcIdx     = null;
 let placeIdCounter = 0;
+
+/* ── localStorage ── */
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      places: savedPlaces.map(p => ({ id: p.id, name: p.name, address: p.address, rating: p.rating, lat: p.lat, lng: p.lng })),
+      routeOrder,
+      currentMode,
+      placeIdCounter,
+    }));
+  } catch(e) {}
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { renderList(); return; }
+    const data = JSON.parse(raw);
+    if (data.placeIdCounter) placeIdCounter = data.placeIdCounter;
+    if (data.currentMode) {
+      currentMode = data.currentMode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('mode-' + currentMode).classList.add('active');
+    }
+    if (Array.isArray(data.places)) data.places.forEach(p => restorePlace(p));
+    if (Array.isArray(data.routeOrder)) {
+      routeOrder = data.routeOrder;
+      savedPlaces.forEach(p => { p.inRoute = routeOrder.includes(p.id); });
+    }
+  } catch(e) { console.warn('Storage load failed:', e); }
+  renderList();
+  drawRoute();
+}
+
+function restorePlace(p) {
+  const marker = new google.maps.Marker({
+    position: { lat: p.lat, lng: p.lng },
+    map,
+    icon: makeSavedIcon('#aaa'),
+    title: p.name,
+    zIndex: 100,
+  });
+  const iw = new google.maps.InfoWindow({ content: buildInfoWindowContent(p.id, p.name, p.rating, p.address) });
+  marker.addListener('click', () => {
+    if (openInfoWindow) openInfoWindow.close();
+    iw.open(map, marker);
+    openInfoWindow = iw;
+  });
+  savedPlaces.push({ ...p, marker, iw, inRoute: false });
+}
+
+function buildInfoWindowContent(id, name, rating, addr) {
+  return `<div style="min-width:160px;font-family:sans-serif">
+    <b style="font-size:13px">${name}</b>
+    ${rating ? `<div style="font-size:11px;color:#f59e0b;margin:3px 0">${rating}</div>` : ''}
+    ${addr ? `<div style="font-size:10px;color:#999;margin-bottom:8px">${addr}</div>` : ''}
+    <button onclick="addToRoute(${id})" style="background:#ff6b35;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 경로에 추가</button>
+  </div>`;
+}
 
 /* ── 마커 아이콘 ── */
 function makeMarkerIcon(color, label) {
@@ -212,30 +268,9 @@ function initMap() {
     fullscreenControl: false,
   });
 
-  directionsService  = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({
-    suppressMarkers: true,
-    polylineOptions: {
-      strokeColor: '#ff6b35',
-      strokeWeight: 5,
-      strokeOpacity: 0.9,
-      icons: [{
-        icon: {
-          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-          scale: 4,
-          strokeColor: '#fff',
-          strokeWeight: 1,
-          fillColor: '#ff6b35',
-          fillOpacity: 1,
-        },
-        offset: '25%',
-        repeat: '300px',
-      }],
-    },
-  });
+  directionsService = new google.maps.DirectionsService();
   placesService = new google.maps.places.PlacesService(map);
 
-  /* Places Autocomplete */
   autocomplete = new google.maps.places.Autocomplete(
     document.getElementById('place-input'),
     { fields: ['name', 'geometry', 'formatted_address', 'rating', 'place_id'] }
@@ -247,13 +282,13 @@ function initMap() {
     document.getElementById('place-input').value = '';
   });
 
-  renderList();
+  loadFromStorage();
 }
 
 /* ── 장소 저장 ── */
 function addSavedPlace(place) {
-  const lat = place.geometry.location.lat();
-  const lng = place.geometry.location.lng();
+  const lat  = place.geometry.location.lat();
+  const lng  = place.geometry.location.lng();
   const name = place.name;
 
   if (savedPlaces.find(p => p.name === name && Math.abs(p.lat - lat) < 0.0001)) {
@@ -261,7 +296,10 @@ function addSavedPlace(place) {
     return;
   }
 
-  const id = ++placeIdCounter;
+  const id     = ++placeIdCounter;
+  const addr   = place.formatted_address || '';
+  const rating = place.rating ? `⭐ ${place.rating}` : '';
+
   const marker = new google.maps.Marker({
     position: { lat, lng },
     map,
@@ -269,17 +307,7 @@ function addSavedPlace(place) {
     title: name,
     zIndex: 100,
   });
-
-  const addr   = place.formatted_address || '';
-  const rating = place.rating ? `⭐ ${place.rating}` : '';
-  const iw = new google.maps.InfoWindow({
-    content: `<div style="min-width:160px;font-family:sans-serif">
-      <b style="font-size:13px">${name}</b>
-      ${rating ? `<div style="font-size:11px;color:#f59e0b;margin:3px 0">${rating}</div>` : ''}
-      ${addr ? `<div style="font-size:10px;color:#999;margin-bottom:8px">${addr}</div>` : ''}
-      <button onclick="addToRoute(${id})" style="background:#ff6b35;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 경로에 추가</button>
-    </div>`,
-  });
+  const iw = new google.maps.InfoWindow({ content: buildInfoWindowContent(id, name, rating, addr) });
   marker.addListener('click', () => {
     if (openInfoWindow) openInfoWindow.close();
     iw.open(map, marker);
@@ -289,6 +317,7 @@ function addSavedPlace(place) {
   savedPlaces.push({ id, name, address: addr, rating, lat, lng, marker, inRoute: false, iw });
   map.panTo({ lat, lng });
   showToast(`"${name}" 저장됐어요 📍`);
+  saveToStorage();
   renderList();
 }
 
@@ -372,6 +401,7 @@ function renderList() {
           arr.splice(i, 0, moved);
           routeOrder = arr;
           savedPlaces.forEach(p => { p.inRoute = routeOrder.includes(p.id); });
+          saveToStorage();
           renderList(); drawRoute(); dragSrcIdx = null;
         });
         list.appendChild(el);
@@ -400,6 +430,7 @@ function toggleRoute(id, e) {
     p.inRoute = true;
     showToast(`"${p.name}" 경로 추가 ✅`);
   }
+  saveToStorage();
   renderList(); drawRoute();
 }
 
@@ -410,6 +441,7 @@ function addToRoute(id) {
   p.inRoute = true;
   showToast(`"${p.name}" 경로 추가 ✅`);
   if (openInfoWindow) openInfoWindow.close();
+  saveToStorage();
   renderList(); drawRoute();
 }
 
@@ -419,6 +451,7 @@ function removeFromRoute(idx, e) {
   routeOrder.splice(idx, 1);
   const p = savedPlaces.find(x => x.id === id);
   if (p) p.inRoute = false;
+  saveToStorage();
   renderList(); drawRoute();
 }
 
@@ -429,6 +462,7 @@ function deleteSavedPlace(id, e) {
   savedPlaces[idx].marker.setMap(null);
   routeOrder = routeOrder.filter(x => x !== id);
   savedPlaces.splice(idx, 1);
+  saveToStorage();
   renderList(); drawRoute();
   showToast('장소가 삭제됐어요');
 }
@@ -438,6 +472,7 @@ function clearRoute() {
   if (!confirm('경로를 모두 초기화할까요?')) return;
   routeOrder = [];
   savedPlaces.forEach(p => p.inRoute = false);
+  saveToStorage();
   renderList(); drawRoute();
   showToast('경로 초기화됐어요');
 }
@@ -447,27 +482,61 @@ function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('mode-' + mode).classList.add('active');
+  saveToStorage();
   drawRoute();
+}
+
+/* ── 수직 오프셋 (경로 겹침 방지) ── */
+function applyPerpendicularOffset(path, offsetMeters) {
+  if (Math.abs(offsetMeters) < 0.01 || path.length < 2) return path;
+  const R = 6371000;
+  const getLat = p => typeof p.lat === 'function' ? p.lat() : p.lat;
+  const getLng = p => typeof p.lng === 'function' ? p.lng() : p.lng;
+
+  return path.map((point, i) => {
+    const prev = path[Math.max(0, i - 1)];
+    const next = path[Math.min(path.length - 1, i + 1)];
+
+    const lat1 = getLat(prev) * Math.PI / 180;
+    const lng1 = getLng(prev) * Math.PI / 180;
+    const lat2 = getLat(next) * Math.PI / 180;
+    const lng2 = getLng(next) * Math.PI / 180;
+
+    const dLng = lng2 - lng1;
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    const perpBearing = Math.atan2(y, x) + Math.PI / 2;
+
+    const curLat = getLat(point) * Math.PI / 180;
+    const dlat = (offsetMeters / R) * Math.cos(perpBearing);
+    const dlng = (offsetMeters / R) * Math.sin(perpBearing) / Math.cos(curLat);
+
+    return {
+      lat: getLat(point) + dlat * 180 / Math.PI,
+      lng: getLng(point) + dlng * 180 / Math.PI,
+    };
+  });
 }
 
 /* ── 경로 그리기 ── */
 function drawRoute() {
   routeMarkers.forEach(m => m.setMap(null));
   routeMarkers = [];
-  if (fallbackPolyline) { fallbackPolyline.setMap(null); fallbackPolyline = null; }
-  directionsRenderer.setMap(null);
+  routePolylines.forEach(p => p.setMap(null));
+  routePolylines = [];
+  fallbackPolylines.forEach(p => p.setMap(null));
+  fallbackPolylines = [];
   document.getElementById('route-info').textContent = '';
 
   const items = getRouteItems();
-  if (!items.length) return;
 
-  /* 저장 장소 마커 색상 업데이트 */
   savedPlaces.forEach(p => {
     const routeIdx = routeOrder.indexOf(p.id);
     p.marker.setIcon(makeSavedIcon(routeIdx >= 0 ? getRouteColor(routeIdx) : '#bbb'));
   });
 
-  /* 경로 번호 마커 */
+  if (!items.length) return;
+
   items.forEach((item, i) => {
     const marker = new google.maps.Marker({
       position: { lat: item.lat, lng: item.lng },
@@ -502,19 +571,59 @@ function drawRoute() {
     travelMode: google.maps.TravelMode[modeMap[currentMode]],
   }, (result, status) => {
     if (status === 'OK') {
-      directionsRenderer.setMap(map);
-      directionsRenderer.setDirections(result);
+      const legs = result.routes[0].legs;
+      legs.forEach((leg, legIdx) => {
+        const color = getRouteColor(legIdx + 1);
+        const path  = [];
+        leg.steps.forEach(step => step.path.forEach(ll => path.push(ll)));
+
+        /* 구간마다 중심 기준 오프셋 적용 — 겹침 방지 */
+        const offsetMeters = (legIdx - (legs.length - 1) / 2) * 8;
+        const offsetPath = applyPerpendicularOffset(path, offsetMeters);
+
+        const polyline = new google.maps.Polyline({
+          path: offsetPath,
+          map,
+          strokeColor: color,
+          strokeWeight: 5,
+          strokeOpacity: 0.9,
+          zIndex: 100 + legIdx,
+          icons: [{
+            icon: {
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 3.5,
+              strokeColor: '#fff',
+              strokeWeight: 1,
+              fillColor: color,
+              fillOpacity: 1,
+            },
+            offset: '20%',
+            repeat: '250px',
+          }],
+        });
+        routePolylines.push(polyline);
+      });
+
       let dist = 0, dur = 0;
-      result.routes[0].legs.forEach(l => { dist += l.distance.value; dur += l.duration.value; });
+      legs.forEach(l => { dist += l.distance.value; dur += l.duration.value; });
       const km  = (dist / 1000).toFixed(1);
       const min = Math.round(dur / 60);
       const time = min >= 60 ? `${Math.floor(min / 60)}시간 ${min % 60}분` : `${min}분`;
       const label = { walking:'도보', driving:'자동차', cycling:'자전거' }[currentMode];
       document.getElementById('route-info').textContent = `${label} · 총 ${km}km · 약 ${time}`;
     } else {
-      fallbackPolyline = new google.maps.Polyline({
-        path: items.map(p => ({ lat: p.lat, lng: p.lng })),
-        map, strokeColor: '#ff6b35', strokeWeight: 4, strokeOpacity: 0.7, geodesic: true,
+      items.forEach((item, i) => {
+        if (i === items.length - 1) return;
+        const next = items[i + 1];
+        const poly = new google.maps.Polyline({
+          path: [{ lat: item.lat, lng: item.lng }, { lat: next.lat, lng: next.lng }],
+          map,
+          strokeColor: getRouteColor(i + 1),
+          strokeWeight: 4,
+          strokeOpacity: 0.7,
+          geodesic: true,
+        });
+        fallbackPolylines.push(poly);
       });
       document.getElementById('route-info').textContent = '직선 경로로 표시됨';
     }
