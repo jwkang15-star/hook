@@ -124,7 +124,7 @@
 
 <div id="sidebar">
   <div id="header">
-    <h1>🇯🇵 후쿠오카 여행 지도 v1.0</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v1.1</h1>
     <p>장소를 검색해서 나만의 경로를 만들어보세요</p>
   </div>
 
@@ -159,7 +159,9 @@
 <script>
 const ROUTE_COLORS = ['#e53935','#1e88e5','#43a047','#fb8c00','#8e24aa','#00acc1','#f4511e','#546e7a'];
 const getRouteColor = i => ROUTE_COLORS[i % ROUTE_COLORS.length];
-const STORAGE_KEY = 'fukuoka_travel_v2';
+
+/* Firebase Realtime Database — 기기 간 동기화 */
+const DB_URL = 'https://jwkang15-1664c-default-rtdb.asia-southeast1.firebasedatabase.app/mapData.json';
 
 let map, directionsService, placesService, autocomplete;
 let savedPlaces    = [];
@@ -172,40 +174,79 @@ let currentTab     = 'places';
 let currentMode    = 'walking';
 let dragSrcIdx     = null;
 let placeIdCounter = 0;
+let isSyncing      = false; // 내가 저장한 데이터가 SSE로 돌아올 때 무시
 
-/* ── localStorage ── */
-function saveToStorage() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+/* ── Firebase 저장 ── */
+let saveTimer;
+function saveToCloud() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const data = {
       places: savedPlaces.map(p => ({ id: p.id, name: p.name, address: p.address, rating: p.rating, lat: p.lat, lng: p.lng })),
       routeOrder,
       currentMode,
       placeIdCounter,
-    }));
-  } catch(e) {}
+    };
+    try {
+      isSyncing = true;
+      await fetch(DB_URL, { method: 'PUT', body: JSON.stringify(data) });
+      setTimeout(() => { isSyncing = false; }, 1500);
+    } catch(e) { isSyncing = false; console.warn('Cloud save failed:', e); }
+  }, 400);
 }
 
-function loadFromStorage() {
+/* ── Firebase 불러오기 ── */
+async function loadFromCloud() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) { renderList(); return; }
-    const data = JSON.parse(raw);
-    if (data.placeIdCounter) placeIdCounter = data.placeIdCounter;
-    if (data.currentMode) {
-      currentMode = data.currentMode;
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('mode-' + currentMode).classList.add('active');
-    }
-    if (Array.isArray(data.places)) data.places.forEach(p => restorePlace(p));
-    if (Array.isArray(data.routeOrder)) {
-      routeOrder = data.routeOrder;
-      savedPlaces.forEach(p => { p.inRoute = routeOrder.includes(p.id); });
-    }
-  } catch(e) { console.warn('Storage load failed:', e); }
+    const res  = await fetch(DB_URL);
+    const data = await res.json();
+    if (data) applyCloudData(data);
+    else renderList();
+  } catch(e) {
+    console.warn('Cloud load failed:', e);
+    renderList();
+  }
+}
+
+/* ── 클라우드 데이터 적용 (불러오기 & 실시간 수신 공통) ── */
+function applyCloudData(data) {
+  /* 기존 마커 전부 제거 */
+  savedPlaces.forEach(p => p.marker.setMap(null));
+  routeMarkers.forEach(m => m.setMap(null));
+  routePolylines.forEach(p => p.setMap(null));
+  fallbackPolylines.forEach(p => p.setMap(null));
+  savedPlaces = []; routeOrder = [];
+  routeMarkers = []; routePolylines = []; fallbackPolylines = [];
+
+  if (data.placeIdCounter) placeIdCounter = data.placeIdCounter;
+  if (data.currentMode) {
+    currentMode = data.currentMode;
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('mode-' + currentMode).classList.add('active');
+  }
+  if (Array.isArray(data.places)) data.places.forEach(p => restorePlace(p));
+  if (Array.isArray(data.routeOrder)) {
+    routeOrder = data.routeOrder;
+    savedPlaces.forEach(p => { p.inRoute = routeOrder.includes(p.id); });
+  }
   renderList();
   drawRoute();
 }
 
+/* ── 실시간 동기화 (EventSource) ── */
+function startRealtimeSync() {
+  const stream = new EventSource(DB_URL);
+  stream.addEventListener('put', e => {
+    if (isSyncing) return; // 내가 방금 저장한 echo 무시
+    const incoming = JSON.parse(e.data).data;
+    if (!incoming) return;
+    applyCloudData(incoming);
+    showToast('다른 기기에서 변경됐어요 🔄');
+  });
+  stream.onerror = () => stream.close(); // 에러 시 조용히 닫기
+}
+
+/* ── 장소 복원 ── */
 function restorePlace(p) {
   const marker = new google.maps.Marker({
     position: { lat: p.lat, lng: p.lng },
@@ -258,7 +299,7 @@ function makeSavedIcon(color) {
 }
 
 /* ── 초기화 ── */
-function initMap() {
+async function initMap() {
   map = new google.maps.Map(document.getElementById('map'), {
     center: { lat: 33.5898, lng: 130.4017 },
     zoom: 13,
@@ -282,7 +323,8 @@ function initMap() {
     document.getElementById('place-input').value = '';
   });
 
-  loadFromStorage();
+  await loadFromCloud();
+  startRealtimeSync();
 }
 
 /* ── 장소 저장 ── */
@@ -317,7 +359,7 @@ function addSavedPlace(place) {
   savedPlaces.push({ id, name, address: addr, rating, lat, lng, marker, inRoute: false, iw });
   map.panTo({ lat, lng });
   showToast(`"${name}" 저장됐어요 📍`);
-  saveToStorage();
+  saveToCloud();
   renderList();
 }
 
@@ -401,7 +443,7 @@ function renderList() {
           arr.splice(i, 0, moved);
           routeOrder = arr;
           savedPlaces.forEach(p => { p.inRoute = routeOrder.includes(p.id); });
-          saveToStorage();
+          saveToCloud();
           renderList(); drawRoute(); dragSrcIdx = null;
         });
         list.appendChild(el);
@@ -430,7 +472,7 @@ function toggleRoute(id, e) {
     p.inRoute = true;
     showToast(`"${p.name}" 경로 추가 ✅`);
   }
-  saveToStorage();
+  saveToCloud();
   renderList(); drawRoute();
 }
 
@@ -441,7 +483,7 @@ function addToRoute(id) {
   p.inRoute = true;
   showToast(`"${p.name}" 경로 추가 ✅`);
   if (openInfoWindow) openInfoWindow.close();
-  saveToStorage();
+  saveToCloud();
   renderList(); drawRoute();
 }
 
@@ -451,7 +493,7 @@ function removeFromRoute(idx, e) {
   routeOrder.splice(idx, 1);
   const p = savedPlaces.find(x => x.id === id);
   if (p) p.inRoute = false;
-  saveToStorage();
+  saveToCloud();
   renderList(); drawRoute();
 }
 
@@ -462,7 +504,7 @@ function deleteSavedPlace(id, e) {
   savedPlaces[idx].marker.setMap(null);
   routeOrder = routeOrder.filter(x => x !== id);
   savedPlaces.splice(idx, 1);
-  saveToStorage();
+  saveToCloud();
   renderList(); drawRoute();
   showToast('장소가 삭제됐어요');
 }
@@ -472,7 +514,7 @@ function clearRoute() {
   if (!confirm('경로를 모두 초기화할까요?')) return;
   routeOrder = [];
   savedPlaces.forEach(p => p.inRoute = false);
-  saveToStorage();
+  saveToCloud();
   renderList(); drawRoute();
   showToast('경로 초기화됐어요');
 }
@@ -482,7 +524,7 @@ function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('mode-' + mode).classList.add('active');
-  saveToStorage();
+  saveToCloud();
   drawRoute();
 }
 
@@ -577,7 +619,6 @@ function drawRoute() {
         const path  = [];
         leg.steps.forEach(step => step.path.forEach(ll => path.push(ll)));
 
-        /* 구간마다 중심 기준 오프셋 적용 — 겹침 방지 */
         const offsetMeters = (legIdx - (legs.length - 1) / 2) * 8;
         const offsetPath = applyPerpendicularOffset(path, offsetMeters);
 
