@@ -10,7 +10,7 @@
 
     /* 모바일 기본: 지도 위, 패널 아래 */
     #map    { width: 100vw; height: 55vh; }
-    #panel  { width: 100vw; height: 45vh; display: flex; flex-direction: column; background: #fff; box-shadow: 0 -3px 16px rgba(0,0,0,.12); transition: height .3s cubic-bezier(.4,0,.2,1); }
+    #panel  { width: 100vw; height: 45vh; display: flex; flex-direction: column; background: #fff; box-shadow: 0 -3px 16px rgba(0,0,0,.12); transition: height .3s cubic-bezier(.4,0,.2,1); overflow: hidden; }
     #panel.expanded { height: 80vh; }
 
     /* 드래그 핸들 */
