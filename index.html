@@ -65,7 +65,7 @@
     .icon-btn.save { border-color:#1a73e8; color:#1a73e8; }
     .del-btn { background:none; border:none; color:#ccc; font-size:16px; cursor:pointer; padding:3px 5px; border-radius:5px; flex-shrink:0; }
     .del-btn:active { color:#e53935; background:#fdecea; }
-    .drag-handle-icon { color:#bbb; font-size:20px; cursor:grab; flex-shrink:0; touch-action:none; padding:0 2px; }
+    .drag-handle-icon { color:#bbb; font-size:22px; cursor:grab; flex-shrink:0; padding:12px 8px; margin:-9px 0 -9px -4px; align-self:stretch; display:flex; align-items:center; }
     .day-items { min-height:14px; padding:2px 0; }
     .day-items:empty { min-height:42px; border:1.5px dashed #e0e0e0; border-radius:10px; margin-bottom:6px; }
     .sortable-ghost { opacity:.4; }
@@ -106,7 +106,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.5</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.6</h1>
   </div>
 
   <div id="search-bar">
@@ -389,7 +389,7 @@ function renderList(){
 
     if(!seq.length){
       const hint=document.createElement('div'); hint.className='empty-state'; hint.style.paddingTop='10px';
-      hint.innerHTML=`<p style="font-size:12.5px;line-height:1.7">저장 탭에서 <b>일정</b> 버튼으로 장소를 추가하고<br/>⠿ 를 잡아 끌어서 순서·일차를 옮기세요</p>`;
+      hint.innerHTML=`<p style="font-size:12.5px;line-height:1.7">저장 탭에서 <b>일정</b> 버튼으로 장소를 추가하고<br/>항목을 <b>꾹 눌러 끌어서</b> 순서·일차를 옮기세요</p>`;
       list.appendChild(hint);
     }
 
@@ -419,9 +419,10 @@ function initSortables(){
   sortables=[];
   document.querySelectorAll('.day-items').forEach(cont=>{
     sortables.push(new Sortable(cont, {
-      group:'itinerary', handle:'.drag-handle-icon', draggable:'.place-item',
-      animation:150, forceFallback:true, fallbackOnBody:true, fallbackTolerance:4,
-      delay:150, delayOnTouchOnly:true,
+      group:'itinerary', draggable:'.place-item',
+      animation:150, forceFallback:true, fallbackOnBody:true, fallbackTolerance:5,
+      delay:200, delayOnTouchOnly:true,
+      filter:'.icon-btn,.del-btn,a',  /* 버튼/링크는 드래그 시작 안 함 */
       onEnd:rebuildItineraryFromDOM
     }));
   });
