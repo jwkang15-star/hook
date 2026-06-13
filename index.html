@@ -6,98 +6,107 @@
   <title>후쿠오카 여행 지도</title>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    :root{
+      --bg:#f2f2f7; --card:#ffffff; --text:#1c1c1e; --text2:#8e8e93; --text3:#c7c7cc;
+      --sep:rgba(60,60,67,.12); --fill:rgba(118,118,128,.12);
+      --accent:#007aff; --accent-soft:rgba(0,122,255,.12); --gold:#ff9500; --danger:#ff3b30;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; color:var(--text); overflow:hidden; }
 
-    #map { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
-    #map-error { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; display: none; align-items: center; justify-content: center; flex-direction: column; background: #fff3f3; color: #e53935; font-size: 13px; text-align: center; padding: 20px; }
+    #map { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:0; }
+    #map-error { position:fixed; inset:0; z-index:1; display:none; align-items:center; justify-content:center; flex-direction:column; background:#fff; color:var(--danger); font-size:14px; text-align:center; padding:20px; }
 
     #panel {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-      height: 50vh; display: flex; flex-direction: column;
-      background: #fff; border-radius: 18px 18px 0 0;
-      box-shadow: 0 -4px 24px rgba(0,0,0,.22);
-      transition: height .3s cubic-bezier(.4,0,.2,1); overflow: hidden;
+      position:fixed; bottom:0; left:0; right:0; z-index:100;
+      height:50vh; display:flex; flex-direction:column;
+      background:var(--bg); border-radius:22px 22px 0 0;
+      box-shadow:0 -0.5px 0 var(--sep), 0 -12px 50px rgba(0,0,0,.18);
+      transition:height .35s cubic-bezier(.32,.72,0,1); overflow:hidden;
     }
     #drag-handle {
-      display: flex; align-items: center; gap: 8px; padding: 10px 14px 8px;
-      background: linear-gradient(135deg,#ff6b35,#f7c59f);
-      cursor: grab; flex-shrink: 0; touch-action: none; border-radius: 18px 18px 0 0;
+      display:flex; align-items:center; gap:10px; padding:13px 16px 11px; position:relative;
+      background:rgba(250,250,252,.82); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+      cursor:grab; flex-shrink:0; touch-action:none; border-radius:22px 22px 0 0; border-bottom:.5px solid var(--sep);
     }
-    #drag-bar { width: 36px; height: 4px; background: rgba(255,255,255,0.6); border-radius: 3px; flex-shrink: 0; }
-    #drag-handle h1 { font-size: 13px; font-weight: 800; color: #fff; flex: 1; }
+    #drag-bar { position:absolute; top:6px; left:50%; transform:translateX(-50%); width:36px; height:5px; background:rgba(60,60,67,.3); border-radius:3px; }
+    #drag-handle h1 { font-size:15px; font-weight:600; letter-spacing:-.3px; color:var(--text); flex:1; }
 
-    #search-bar { padding: 7px 10px 4px; flex-shrink: 0; }
-    #place-input { width:100%; padding:8px 12px; border:1.5px solid #ddd; border-radius:9px; font-size:14px; outline:none; }
-    #place-input:focus { border-color:#ff6b35; }
-    #link-btn { width:100%; margin-top:5px; padding:7px; background:#fff; border:1.5px solid #1a73e8; color:#1a73e8; border-radius:9px; font-size:12.5px; font-weight:700; cursor:pointer; }
-    #link-btn:active { background:#e8f0fe; }
+    #search-bar { padding:10px 16px 6px; flex-shrink:0; }
+    #place-input { width:100%; padding:10px 14px; border:none; background:var(--fill); border-radius:11px; font-size:16px; outline:none; color:var(--text); }
+    #place-input::placeholder { color:var(--text2); }
+    #link-btn { width:100%; margin-top:8px; padding:10px; background:var(--accent-soft); border:none; color:var(--accent); border-radius:11px; font-size:14px; font-weight:600; cursor:pointer; letter-spacing:-.2px; }
+    #link-btn:active { background:rgba(0,122,255,.22); }
 
-    #category-bar { display:flex; gap:6px; padding:4px 10px 7px; overflow-x:auto; flex-shrink:0; -webkit-overflow-scrolling:touch; border-bottom:1px solid #eee; }
+    #category-bar { display:flex; gap:8px; padding:8px 16px 10px; overflow-x:auto; flex-shrink:0; -webkit-overflow-scrolling:touch; }
     #category-bar::-webkit-scrollbar { display:none; }
-    .cat-chip { white-space:nowrap; padding:6px 12px; border:1.5px solid #ddd; border-radius:20px; background:#fff; font-size:12.5px; font-weight:600; color:#555; cursor:pointer; flex-shrink:0; }
-    .cat-chip.active { background:#1a73e8; border-color:#1a73e8; color:#fff; }
+    .cat-chip { white-space:nowrap; padding:7px 14px; border:.5px solid var(--sep); border-radius:18px; background:var(--card); font-size:13px; font-weight:500; color:var(--text); cursor:pointer; flex-shrink:0; box-shadow:0 1px 2px rgba(0,0,0,.04); transition:transform .15s; }
+    .cat-chip:active { transform:scale(.95); }
+    .cat-chip.active { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 2px 8px rgba(0,122,255,.3); }
 
-    #tabs { display:flex; border-bottom:2px solid #eee; flex-shrink:0; }
-    .tab { flex:1; padding:9px 0; text-align:center; font-size:13px; font-weight:600; cursor:pointer; color:#aaa; border-bottom:2px solid transparent; margin-bottom:-2px; }
-    .tab.active { color:#ff6b35; border-bottom-color:#ff6b35; }
+    #tabs { display:flex; gap:2px; margin:2px 16px 8px; padding:2px; background:var(--fill); border-radius:10px; flex-shrink:0; }
+    .tab { flex:1; padding:7px 0; text-align:center; font-size:13px; font-weight:500; cursor:pointer; color:var(--text); border-radius:8px; transition:all .2s; letter-spacing:-.2px; }
+    .tab.active { background:var(--card); color:var(--text); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.12); }
 
-    #place-list { flex:1; overflow-y:auto; padding:6px 10px; -webkit-overflow-scrolling:touch; min-height:0; }
+    #place-list { flex:1; overflow-y:auto; padding:4px 16px 12px; -webkit-overflow-scrolling:touch; min-height:0; }
 
-    .place-item { display:flex; align-items:center; gap:8px; padding:9px; margin-bottom:5px; background:#f8f9fa; border-radius:12px; border:1.5px solid #eee; cursor:pointer; }
-    .place-item:active { background:#fff0eb; }
-    .place-item.in-route { border-color:#ff6b35; background:#fff5f0; }
+    .place-item { display:flex; align-items:center; gap:12px; padding:10px 12px; margin-bottom:8px; background:var(--card); border-radius:14px; border:.5px solid transparent; box-shadow:0 1px 3px rgba(0,0,0,.06); cursor:pointer; transition:transform .12s; }
+    .place-item:active { transform:scale(.985); background:#fafafa; }
+    .place-item.in-route { box-shadow:0 1px 3px rgba(0,0,0,.06), inset 3px 0 0 var(--accent); }
     .place-item.dragging { opacity:.4; }
-    .place-item.drag-over { border-color:#ff6b35; background:#fff5f0; }
+    .place-item.drag-over { border-color:var(--accent); }
 
-    .place-thumb { width:48px; height:48px; border-radius:9px; object-fit:cover; flex-shrink:0; background:#eee; }
-    .place-thumb.placeholder { display:flex; align-items:center; justify-content:center; font-size:20px; color:#ccc; }
+    .place-thumb { width:50px; height:50px; border-radius:11px; object-fit:cover; flex-shrink:0; background:var(--fill); }
+    .place-thumb.placeholder { display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--text3); }
 
     .place-num-badge { min-width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#fff; flex-shrink:0; }
     .place-info { flex:1; min-width:0; }
-    .place-name { font-size:13px; font-weight:700; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .place-addr { font-size:11px; color:#999; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .place-rating { font-size:11px; color:#f59e0b; }
-    .place-memo { font-size:11.5px; color:#1a73e8; margin-top:3px; white-space:normal; line-height:1.4; }
-    .place-memo.empty { color:#bbb; font-style:italic; }
+    .place-name { font-size:14.5px; font-weight:600; letter-spacing:-.3px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .place-addr { font-size:12px; color:var(--text2); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .place-rating { font-size:12px; color:var(--gold); font-weight:500; margin-top:1px; }
+    .place-memo { font-size:12.5px; color:var(--accent); margin-top:3px; white-space:normal; line-height:1.4; }
+    .place-memo.empty { color:var(--text3); }
 
-    .btn-group { display:flex; gap:4px; flex-shrink:0; align-items:center; }
-    .icon-btn { background:none; border:1.5px solid #ddd; border-radius:7px; color:#888; font-size:13px; padding:5px 7px; cursor:pointer; font-weight:600; white-space:nowrap; }
-    .icon-btn.active { background:#ff6b35; border-color:#ff6b35; color:#fff; }
-    .icon-btn.save { border-color:#1a73e8; color:#1a73e8; }
-    .del-btn { background:none; border:none; color:#ccc; font-size:16px; cursor:pointer; padding:3px 5px; border-radius:5px; flex-shrink:0; }
-    .del-btn:active { color:#e53935; background:#fdecea; }
-    .drag-handle-icon { color:#bbb; font-size:22px; cursor:grab; flex-shrink:0; padding:12px 8px; margin:-9px 0 -9px -4px; align-self:stretch; display:flex; align-items:center; }
+    .btn-group { display:flex; gap:6px; flex-shrink:0; align-items:center; }
+    .icon-btn { background:var(--fill); border:none; border-radius:9px; color:var(--accent); font-size:13px; padding:8px 11px; cursor:pointer; font-weight:600; white-space:nowrap; transition:transform .12s; }
+    .icon-btn:active { transform:scale(.92); }
+    .icon-btn.active { background:var(--accent); color:#fff; }
+    .icon-btn.save { background:var(--accent-soft); color:var(--accent); }
+    .del-btn { background:none; border:none; color:var(--text3); font-size:17px; cursor:pointer; padding:4px 6px; border-radius:8px; flex-shrink:0; }
+    .del-btn:active { color:var(--danger); background:rgba(255,59,48,.1); }
+    .drag-handle-icon { color:var(--text3); font-size:20px; cursor:grab; flex-shrink:0; padding:12px 6px; margin:-9px 2px -9px -4px; align-self:stretch; display:flex; align-items:center; }
     .day-items { min-height:14px; padding:2px 0; }
-    .day-items:empty { min-height:42px; border:1.5px dashed #e0e0e0; border-radius:10px; margin-bottom:6px; }
-    .sortable-ghost { opacity:.4; }
-    .sortable-chosen { background:#fff5f0 !important; border-color:#ff6b35 !important; }
+    .day-items:empty { min-height:46px; border:1.5px dashed var(--sep); border-radius:12px; margin-bottom:8px; }
+    .sortable-ghost { opacity:.35; }
+    .sortable-chosen { box-shadow:0 8px 24px rgba(0,0,0,.18) !important; }
 
     /* 일정 (일차) */
-    .day-header { display:flex; align-items:center; justify-content:space-between; margin:12px 4px 7px; }
-    .day-header .day-title { font-size:14px; font-weight:800; color:#ff6b35; }
-    .day-del-btn { background:none; border:1.5px solid #eee; border-radius:7px; color:#bbb; font-size:11px; font-weight:600; padding:4px 8px; cursor:pointer; }
-    .day-del-btn:active { border-color:#e53935; color:#e53935; }
-    .day-empty { font-size:11.5px; color:#bbb; padding:4px 8px 8px; font-style:italic; }
-    .day-select { font-size:11px; border:1.5px solid #ddd; border-radius:6px; padding:4px; background:#fff; color:#555; flex-shrink:0; }
-    .add-day-btn { width:100%; margin:6px 0 4px; padding:9px; background:#fff; border:1.5px dashed #ff6b35; border-radius:10px; color:#ff6b35; font-size:13px; font-weight:700; cursor:pointer; }
-    .seg-dir-link { display:block; text-align:center; margin:-1px 28px 7px; padding:8px; background:#e8f0fe; color:#1a73e8; font-size:12px; font-weight:700; border-radius:9px; text-decoration:none; }
-    .seg-dir-link:active { background:#d2e3fc; }
+    .day-header { display:flex; align-items:center; justify-content:space-between; margin:16px 4px 9px; }
+    .day-header .day-title { font-size:16px; font-weight:700; letter-spacing:-.4px; color:var(--text); }
+    .day-del-btn { background:var(--fill); border:none; border-radius:8px; color:var(--text2); font-size:12px; font-weight:600; padding:5px 10px; cursor:pointer; }
+    .day-del-btn:active { background:rgba(255,59,48,.1); color:var(--danger); }
+    .day-empty { font-size:12px; color:var(--text3); padding:4px 8px 8px; }
+    .day-select { font-size:12px; border:.5px solid var(--sep); border-radius:8px; padding:5px; background:var(--card); color:var(--text); flex-shrink:0; }
+    .add-day-btn { width:100%; margin:8px 0 4px; padding:11px; background:var(--accent-soft); border:none; border-radius:13px; color:var(--accent); font-size:14px; font-weight:600; cursor:pointer; letter-spacing:-.2px; }
+    .add-day-btn:active { background:rgba(0,122,255,.22); }
+    .seg-dir-link { display:block; text-align:center; margin:-1px 30px 8px; padding:9px; background:var(--accent-soft); color:var(--accent); font-size:12.5px; font-weight:600; border-radius:11px; text-decoration:none; letter-spacing:-.2px; }
+    .seg-dir-link:active { background:rgba(0,122,255,.22); }
 
-    .empty-state { text-align:center; padding:30px 16px; color:#ccc; }
-    .empty-state .icon { font-size:38px; margin-bottom:12px; }
-    .empty-state p { font-size:13px; line-height:1.8; }
+    .empty-state { text-align:center; padding:36px 16px; color:var(--text3); }
+    .empty-state .icon { font-size:40px; margin-bottom:14px; }
+    .empty-state p { font-size:13.5px; line-height:1.7; color:var(--text2); }
 
-    #footer { padding:8px 10px; background:#f8f9fa; border-top:1px solid #eee; flex-shrink:0; }
-    #total-info { font-weight:700; color:#444; font-size:12px; }
+    #footer { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:rgba(250,250,252,.9); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); border-top:.5px solid var(--sep); flex-shrink:0; }
+    #total-info { font-weight:500; color:var(--text2); font-size:12.5px; letter-spacing:-.2px; }
 
     @media (min-width: 769px) {
-      #panel { position:fixed; top:0; left:0; bottom:0; right:auto; width:340px; height:100vh; border-radius:0; box-shadow:2px 0 16px rgba(0,0,0,.15); transition:none; }
+      #panel { position:fixed; top:0; left:0; bottom:0; right:auto; width:360px; height:100vh; border-radius:0; box-shadow:.5px 0 0 var(--sep), 4px 0 24px rgba(0,0,0,.08); transition:none; }
       #drag-handle { display:none; }
+      #search-bar { padding-top:16px; }
     }
 
-    #toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#222; color:#fff; padding:8px 18px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:9999; white-space:nowrap; }
-    #toast.show { opacity:1; }
+    #toast { position:fixed; bottom:max(26px,calc(env(safe-area-inset-bottom) + 16px)); left:50%; transform:translateX(-50%) translateY(8px); background:rgba(40,40,42,.92); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); color:#fff; padding:12px 22px; border-radius:16px; font-size:14px; font-weight:500; letter-spacing:-.2px; opacity:0; transition:opacity .3s,transform .3s; pointer-events:none; z-index:9999; white-space:nowrap; box-shadow:0 8px 30px rgba(0,0,0,.25); }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -108,7 +117,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.17</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.18</h1>
   </div>
 
   <div id="search-bar">
@@ -235,7 +244,7 @@ function startRealtimeSync() {
 /* ── 마커 ── */
 function makeSavedIcon(color){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="30" viewBox="0 0 24 30"><path d="M12 0C5.373 0 0 5.373 0 12c0 7.5 12 18 12 18S24 19.5 24 12C24 5.373 18.627 0 12 0z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="12" cy="12" r="4" fill="white"/></svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(24,30), anchor:new google.maps.Point(12,30) }; }
 function makeNumberIcon(color,label){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24s16-14 16-24C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="1.5"/><text x="16" y="21" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="sans-serif" font-size="13" font-weight="bold">${label}</text></svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(32,40), anchor:new google.maps.Point(16,40) }; }
-function makeNearbyIcon(){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="6" fill="#1a73e8" stroke="white" stroke-width="2.5"/></svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(18,18), anchor:new google.maps.Point(9,9) }; }
+function makeNearbyIcon(){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="6" fill="#007aff" stroke="white" stroke-width="2.5"/></svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(18,18), anchor:new google.maps.Point(9,9) }; }
 
 /* 구글지도 실제 리뷰 페이지 / 길찾기 */
 /* 구글지도 앱으로 열리는 범용 링크 (앱 설치 시 앱, 아니면 웹) */
@@ -248,12 +257,12 @@ function buildSavedIW(p){
   return `<div style="min-width:190px;font-family:sans-serif">
     ${p.photoUrl?`<img src="${p.photoUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>`:''}
     <b style="font-size:13px">${p.name}</b>
-    ${p.rating?`<div style="font-size:11px;color:#f59e0b;margin:3px 0">${p.rating}</div>`:''}
+    ${p.rating?`<div style="font-size:11px;color:#ff9500;margin:3px 0">${p.rating}</div>`:''}
     ${p.address?`<div style="font-size:10px;color:#999;margin-bottom:6px">${p.address}</div>`:''}
-    ${p.memo?`<div style="font-size:11px;color:#1a73e8;margin-bottom:6px">📝 ${p.memo}</div>`:''}
-    <a href="${gmapsReviewUrl(p)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
-    <button onclick="addToRoute(${p.id})" style="background:#ff6b35;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700;margin-bottom:5px">+ 일정에 추가</button>
-    <button onclick="deleteSavedPlace(${p.id})" style="background:#fff;color:#e53935;border:1.5px solid #f3c1bd;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">🗑 장소 삭제</button>
+    ${p.memo?`<div style="font-size:11px;color:#007aff;margin-bottom:6px">📝 ${p.memo}</div>`:''}
+    <a href="${gmapsReviewUrl(p)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:rgba(0,122,255,.12);color:#007aff;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
+    <button onclick="addToRoute(${p.id})" style="background:#007aff;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700;margin-bottom:5px">+ 일정에 추가</button>
+    <button onclick="deleteSavedPlace(${p.id})" style="background:#fff;color:#ff3b30;border:1px solid rgba(255,59,48,.3);border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">🗑 장소 삭제</button>
   </div>`;
 }
 function restorePlace(p){
@@ -298,15 +307,15 @@ function openPoiIW(r){
   const saved=savedPlaces.find(p=>(r.placeId&&p.placeId===r.placeId)||(p.name===r.name&&Math.abs(p.lat-r.lat)<0.0002));
   const enc=encodeURIComponent(JSON.stringify({name:r.name,lat:r.lat,lng:r.lng,address:r.address,rating:r.rating,placeId:r.placeId,photoUrl:r.photoUrl}));
   const buttons = saved
-    ? `<button onclick="addToRoute(${saved.id})" style="background:#ff6b35;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700;margin-bottom:5px">+ 일정에 추가</button>
-       <button onclick="deleteSavedPlace(${saved.id})" style="background:#fff;color:#e53935;border:1.5px solid #f3c1bd;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">🗑 내 장소에서 제거</button>`
-    : `<button onclick="saveNearbyEnc('${enc}')" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 내 장소로 저장</button>`;
+    ? `<button onclick="addToRoute(${saved.id})" style="background:#007aff;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700;margin-bottom:5px">+ 일정에 추가</button>
+       <button onclick="deleteSavedPlace(${saved.id})" style="background:#fff;color:#ff3b30;border:1px solid rgba(255,59,48,.3);border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">🗑 내 장소에서 제거</button>`
+    : `<button onclick="saveNearbyEnc('${enc}')" style="background:#007aff;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 내 장소로 저장</button>`;
   const iw=new google.maps.InfoWindow({ position:{lat:r.lat,lng:r.lng}, content:`<div style="min-width:190px;font-family:sans-serif">
     ${r.photoUrl?`<img src="${r.photoUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>`:''}
     <b style="font-size:13px">${r.name}</b>
-    ${r.rating?`<div style="font-size:11px;color:#f59e0b;margin:3px 0">${r.rating}</div>`:''}
+    ${r.rating?`<div style="font-size:11px;color:#ff9500;margin:3px 0">${r.rating}</div>`:''}
     ${r.address?`<div style="font-size:10px;color:#999;margin-bottom:6px">${r.address}</div>`:''}
-    <a href="${gmapsReviewUrl(r)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
+    <a href="${gmapsReviewUrl(r)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:rgba(0,122,255,.12);color:#007aff;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
     ${buttons}
   </div>`});
   iw.open(map); openInfoWindow=iw;
@@ -356,10 +365,10 @@ function openNearbyIW(r,marker){
   const iw=new google.maps.InfoWindow({content:`<div style="min-width:180px;font-family:sans-serif">
     ${r.photoUrl?`<img src="${r.photoUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>`:''}
     <b style="font-size:13px">${r.name}</b>
-    ${r.rating?`<div style="font-size:11px;color:#f59e0b;margin:3px 0">${r.rating}</div>`:''}
+    ${r.rating?`<div style="font-size:11px;color:#ff9500;margin:3px 0">${r.rating}</div>`:''}
     ${r.address?`<div style="font-size:10px;color:#999;margin-bottom:6px">${r.address}</div>`:''}
-    <a href="${gmapsReviewUrl(r)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
-    <button onclick="saveNearbyEnc('${encodeURIComponent(JSON.stringify({name:r.name,lat:r.lat,lng:r.lng,address:r.address,rating:r.rating,placeId:r.placeId,photoUrl:r.photoUrl}))}')" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 내 장소로 저장</button>
+    <a href="${gmapsReviewUrl(r)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:rgba(0,122,255,.12);color:#007aff;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
+    <button onclick="saveNearbyEnc('${encodeURIComponent(JSON.stringify({name:r.name,lat:r.lat,lng:r.lng,address:r.address,rating:r.rating,placeId:r.placeId,photoUrl:r.photoUrl}))}')" style="background:#007aff;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 내 장소로 저장</button>
   </div>`});
   iw.open(map,marker); openInfoWindow=iw;
 }
