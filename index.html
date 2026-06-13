@@ -30,6 +30,8 @@
     #search-bar { padding: 7px 10px 4px; flex-shrink: 0; }
     #place-input { width:100%; padding:8px 12px; border:1.5px solid #ddd; border-radius:9px; font-size:14px; outline:none; }
     #place-input:focus { border-color:#ff6b35; }
+    #link-btn { width:100%; margin-top:5px; padding:7px; background:#fff; border:1.5px solid #1a73e8; color:#1a73e8; border-radius:9px; font-size:12.5px; font-weight:700; cursor:pointer; }
+    #link-btn:active { background:#e8f0fe; }
 
     #category-bar { display:flex; gap:6px; padding:4px 10px 7px; overflow-x:auto; flex-shrink:0; -webkit-overflow-scrolling:touch; border-bottom:1px solid #eee; }
     #category-bar::-webkit-scrollbar { display:none; }
@@ -106,11 +108,12 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.11</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.12</h1>
   </div>
 
   <div id="search-bar">
     <input id="place-input" type="text" placeholder="🔍  장소 검색..." autocomplete="off" />
+    <button id="link-btn" onclick="importFromLinkPrompt()">🔗 구글지도 공유 링크로 저장</button>
   </div>
 
   <div id="category-bar"></div>
@@ -331,6 +334,80 @@ function switchTab(tab){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['places','nearby','route'][i]===tab));
   if(tab!=='nearby'){ activeCat=-1; document.querySelectorAll('.cat-chip').forEach(el=>el.classList.remove('active')); }
   renderList();
+}
+
+/* ── 구글지도 공유 링크로 저장 ── */
+function importFromLinkPrompt(){
+  const url=prompt('구글지도 공유 링크를 붙여넣으세요\n(앱 공유 짧은 링크 또는 전체 주소)');
+  if(url && url.trim()) importFromLink(url.trim());
+}
+
+/* URL 문자열에서 장소명/좌표/place_id 추출 */
+function parseMapsUrl(s){
+  let lat=null,lng=null,name=null,placeId=null,m;
+  if((m=s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)) || (m=s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)) ||
+     (m=s.match(/[?&](?:q|query|ll|center|destination|daddr)=(-?\d+\.\d+),(-?\d+\.\d+)/))){
+    lat=parseFloat(m[1]); lng=parseFloat(m[2]);
+  }
+  if((m=s.match(/\/place\/([^\/@?]+)/))) name=decodeURIComponent(m[1].replace(/\+/g,' ')).trim();
+  if(!name && (m=s.match(/[?&]q=([^&]+)/))){ const v=decodeURIComponent(m[1].replace(/\+/g,' ')).trim(); if(!/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(v)) name=v; }
+  if((m=s.match(/[?&]query_place_id=([A-Za-z0-9_-]+)/))) placeId=m[1];
+  return {name,lat,lng,placeId};
+}
+
+async function importFromLink(url){
+  showToast('링크 분석 중...');
+  let {name,lat,lng,placeId}=parseMapsUrl(url);
+
+  /* 짧은 링크거나 좌표/이름을 못 찾으면 프록시로 펼쳐서 재시도 */
+  if((lat===null || !name) && /(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)/.test(url)){
+    try{
+      const res=await fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url));
+      const j=await res.json();
+      const html=j.contents||'';
+      const extra=parseMapsUrl(html);
+      name=name||extra.name; placeId=placeId||extra.placeId;
+      if(lat===null){ lat=extra.lat; lng=extra.lng; }
+      if(!name){ const t=html.match(/<title>([^<]+)<\/title>/); if(t) name=t[1].replace(/\s*-\s*Google.*$/i,'').trim(); }
+    }catch(e){ /* 프록시 실패 */ }
+  }
+  finalizeImport(name,lat,lng,placeId);
+}
+
+function addFromPlaceResult(d){
+  if(!d||!d.geometry) { showToast('장소를 못 찾았어요'); return; }
+  addSavedPlace({ name:d.name, lat:d.geometry.location.lat(), lng:d.geometry.location.lng(),
+    address:d.formatted_address||d.vicinity||'', rating:d.rating?`⭐ ${d.rating}`:'',
+    placeId:d.place_id||'', photoUrl:d.photos?.[0]?.getUrl({maxWidth:400,maxHeight:300})||'' });
+}
+
+function finalizeImport(name,lat,lng,placeId){
+  /* 1) place_id 있으면 상세조회 */
+  if(placeId){
+    placesService.getDetails({placeId, fields:['name','geometry','formatted_address','rating','place_id','photos']},
+      (d,st)=>{ if(st==='OK') addFromPlaceResult(d); else byNameOrCoords(name,lat,lng); });
+    return;
+  }
+  /* 2) 이름으로 검색 (좌표로 위치 보정) */
+  if(name){
+    const req={ query:name, fields:['name','geometry','formatted_address','rating','place_id','photos'] };
+    req.locationBias = (lat!=null) ? {lat,lng} : map.getCenter();
+    placesService.findPlaceFromQuery(req,(res,st)=>{ if(st==='OK'&&res&&res[0]) addFromPlaceResult(res[0]); else byNameOrCoords(name,lat,lng); });
+    return;
+  }
+  byNameOrCoords(name,lat,lng);
+}
+
+/* 좌표만 있으면 역지오코딩, 둘 다 없으면 안내 */
+function byNameOrCoords(name,lat,lng){
+  if(lat!=null){
+    new google.maps.Geocoder().geocode({location:{lat,lng}},(res,st)=>{
+      const first=(st==='OK'&&res&&res[0])?res[0]:null;
+      addSavedPlace({ name:name||(first?first.formatted_address.split(',')[0]:'가져온 장소'), lat, lng, address:first?first.formatted_address:'' });
+    });
+  } else {
+    showToast('링크에서 장소를 못 읽었어요 — 전체 주소 링크를 붙여넣어 주세요');
+  }
 }
 
 /* 일정 순서: 일차(day) 우선 정렬 (stable) */
