@@ -65,6 +65,9 @@
     .del-btn { background:none; border:none; color:#ccc; font-size:16px; cursor:pointer; padding:3px 5px; border-radius:5px; flex-shrink:0; }
     .del-btn:active { color:#e53935; background:#fdecea; }
     .drag-handle-icon { color:#ccc; font-size:15px; cursor:grab; flex-shrink:0; }
+    .ord-col { display:flex; flex-direction:column; gap:3px; flex-shrink:0; }
+    .ord-btn { width:24px; height:20px; padding:0; border:1.5px solid #ddd; border-radius:6px; background:#fff; color:#888; font-size:10px; cursor:pointer; line-height:1; }
+    .ord-btn:active { background:#fff0eb; border-color:#ff6b35; color:#ff6b35; }
 
     /* 일정 (일차) */
     .day-header { display:flex; align-items:center; justify-content:space-between; margin:12px 4px 7px; }
@@ -99,7 +102,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.2</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.3</h1>
   </div>
 
   <div id="search-bar">
@@ -356,9 +359,11 @@ function renderList(){
       dayItems.forEach((id,di)=>{
         const item=savedPlaces.find(p=>p.id===id); if(!item) return;
         const gi=seq.indexOf(id);
-        const el=document.createElement('div'); el.className='place-item'; el.draggable=true; el.dataset.idx=gi;
-        el.innerHTML=`<span class="drag-handle-icon">⠿</span>
-          <span class="place-num-badge" style="background:${getRouteColor(gi)}">${gi+1}</span>
+        const el=document.createElement('div'); el.className='place-item';
+        el.innerHTML=`<div class="ord-col">
+            <button class="ord-btn" onclick="moveOrder(${item.id},-1,event)" ${di===0?'disabled style="opacity:.3"':''}>▲</button>
+            <button class="ord-btn" onclick="moveOrder(${item.id},1,event)" ${di===dayItems.length-1?'disabled style="opacity:.3"':''}>▼</button>
+          </div>
           ${thumbHtml(item)}
           <div class="place-info">
             <div class="place-name">${item.name}</div>
@@ -367,12 +372,7 @@ function renderList(){
           <select class="day-select" onchange="setPlaceDay(${item.id},this.value)" onclick="event.stopPropagation()">${dayOptions(d)}</select>
           <button class="icon-btn" onclick="editMemo(${item.id},event)">📝</button>
           <button class="del-btn" onclick="removeFromRoute(${item.id},event)">✕</button>`;
-        el.addEventListener('click',e=>{ if(e.target.closest('.icon-btn')||e.target.closest('.day-select')||e.target.classList.contains('del-btn')||e.target.classList.contains('drag-handle-icon')) return; map.panTo({lat:item.lat,lng:item.lng}); map.setZoom(16); openSavedIW(item); });
-        el.addEventListener('dragstart',()=>{ dragSrcIdx=gi; setTimeout(()=>el.classList.add('dragging'),0); });
-        el.addEventListener('dragend',()=>el.classList.remove('dragging'));
-        el.addEventListener('dragover',e=>{ e.preventDefault(); document.querySelectorAll('.place-item').forEach(x=>x.classList.remove('drag-over')); el.classList.add('drag-over'); });
-        el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
-        el.addEventListener('drop',e=>{ e.preventDefault(); el.classList.remove('drag-over'); if(dragSrcIdx===null||dragSrcIdx===gi) return; const arr=routeSeq(); const [mv]=arr.splice(dragSrcIdx,1); arr.splice(gi,0,mv); routeOrder=arr; saveToCloud(); renderList(); refreshRouteMarkers(); dragSrcIdx=null; });
+        el.addEventListener('click',e=>{ if(e.target.closest('.icon-btn')||e.target.closest('.day-select')||e.target.closest('.ord-col')||e.target.classList.contains('del-btn')) return; map.panTo({lat:item.lat,lng:item.lng}); map.setZoom(16); openSavedIW(item); });
         list.appendChild(el);
 
         /* 같은 일차 내 다음 장소와의 구간 길찾기 */
@@ -409,6 +409,7 @@ function refreshRouteMarkers(){
 }
 
 function setPlaceDay(id,day){ const p=savedPlaces.find(x=>x.id===id); if(!p) return; p.day=parseInt(day,10)||1; if(p.day>numDays) numDays=p.day; saveToCloud(); renderList(); refreshRouteMarkers(); }
+function moveOrder(id,dir,e){ if(e) e.stopPropagation(); const seq=routeSeq(); const i=seq.indexOf(id); const j=i+dir; if(j<0||j>=seq.length) return; if(dayOf(seq[j])!==dayOf(id)) return; [seq[i],seq[j]]=[seq[j],seq[i]]; routeOrder=seq; saveToCloud(); renderList(); refreshRouteMarkers(); }
 function editMemo(id,e){ if(e) e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; const v=prompt(`"${p.name}" 메모`,p.memo||''); if(v===null) return; p.memo=v.trim(); saveToCloud(); renderList(); }
 function toggleRoute(id,e){ e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; if(p.inRoute){ routeOrder=routeOrder.filter(x=>x!==id); p.inRoute=false; showToast('일정에서 제거됐어요'); } else { routeOrder.push(id); p.inRoute=true; if(!p.day) p.day=1; showToast(`"${p.name}" 일정 추가 ✅`); } saveToCloud(); renderList(); refreshRouteMarkers(); }
 function addToRoute(id){ const p=savedPlaces.find(x=>x.id===id); if(!p||p.inRoute) return; routeOrder.push(id); p.inRoute=true; if(!p.day) p.day=1; showToast(`"${p.name}" 일정 추가 ✅`); if(openInfoWindow) openInfoWindow.close(); saveToCloud(); renderList(); refreshRouteMarkers(); }
