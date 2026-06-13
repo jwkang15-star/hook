@@ -136,7 +136,7 @@
 </head>
 <body>
 
-<div id="loading"><img src="loading.png" alt="로딩 중" /><div id="loading-dots"><span></span><span></span><span></span></div></div>
+<div id="loading"><div id="loading-dots"><span></span><span></span><span></span></div></div>
 
 <div id="map"></div>
 <div id="map-error">⚠️ 지도 로드 실패<br>API 키 설정을 확인해주세요</div>
@@ -145,7 +145,7 @@
   <div id="drag-handle">
     <div id="drag-bar"></div>
     <img id="hdr-kitty" src="icon.png" alt="" />
-    <h1>후쿠오카 키티 여행 지도 v3.21</h1>
+    <h1>후쿠오카 키티 여행 지도 v3.22</h1>
   </div>
 
   <div id="search-bar">
@@ -274,28 +274,7 @@ function startRealtimeSync() {
 
 /* ── 마커 ── */
 /* 🐱 키티 얼굴(흰 머리+귀+눈+코+수염, 옵션 리본). viewBox 0 0 72 60 기준 */
-function kittyFace(bow){
-  const bowG = bow ? `<g stroke="#fff" stroke-width="1.2" stroke-linejoin="round">
-      <polygon points="52,13 39,5 43,22" fill="${bow}"/>
-      <polygon points="52,13 65,5 61,22" fill="${bow}"/>
-      <circle cx="52" cy="14" r="4.6" fill="${bow}"/>
-    </g>` : '';
-  return `<polygon points="16,3 33,22 6,24" fill="#fff" stroke="#ef9ab4" stroke-width="2" stroke-linejoin="round"/>
-    <polygon points="56,3 66,24 39,22" fill="#fff" stroke="#ef9ab4" stroke-width="2" stroke-linejoin="round"/>
-    <ellipse cx="36" cy="34" rx="30" ry="22" fill="#fff" stroke="#ef9ab4" stroke-width="2"/>
-    <g stroke="#eaa6bd" stroke-width="1.6" stroke-linecap="round">
-      <line x1="4" y1="32" x2="18" y2="33"/><line x1="2" y1="38" x2="18" y2="38"/><line x1="4" y1="44" x2="18" y2="43"/>
-      <line x1="68" y1="32" x2="54" y2="33"/><line x1="70" y1="38" x2="54" y2="38"/><line x1="68" y1="44" x2="54" y2="43"/>
-    </g>
-    <ellipse cx="26" cy="34" rx="2.8" ry="4.4" fill="#3a2a30"/>
-    <ellipse cx="46" cy="34" rx="2.8" ry="4.4" fill="#3a2a30"/>
-    <ellipse cx="36" cy="42" rx="4" ry="2.6" fill="#ffb300"/>
-    ${bowG}`;
-}
-const BIG_KITTY='<svg width="96" height="80" viewBox="0 0 72 60" style="filter:drop-shadow(0 3px 7px rgba(255,93,143,.28))">'+kittyFace('#ff4f87')+'</svg>';
-function makeSavedIcon(color){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="33" viewBox="0 0 72 60">${kittyFace(color&&color!=='#aaa'?color:'#ff7eb0')}</svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(40,33), anchor:new google.maps.Point(20,31) }; }
-function makeNumberIcon(color,label){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="46" height="38" viewBox="0 0 78 64">${kittyFace(color)}<circle cx="60" cy="50" r="12.5" fill="${color}" stroke="#fff" stroke-width="2.5"/><text x="60" y="51" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="sans-serif" font-size="15" font-weight="bold">${label}</text></svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(46,38), anchor:new google.maps.Point(21,33) }; }
-function makeNearbyIcon(){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="23" viewBox="0 0 72 60">${kittyFace(null)}</svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(28,23), anchor:new google.maps.Point(14,12) }; }
+function makeNearbyIcon(){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="#ff5d8f" stroke="white" stroke-width="2.5"/></svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(16,16), anchor:new google.maps.Point(8,8) }; }
 
 /* 🐱 손 흔드는 키티 이미지 마커 (커스텀 HTML 오버레이) — pin.png 사용 */
 function KittyMarker(opts){
@@ -589,7 +568,7 @@ function renderList(){
   list.innerHTML='';
 
   if(currentTab==='places'){
-    if(!savedPlaces.length){ list.innerHTML=`<div class="empty-state"><div class="icon">${BIG_KITTY}</div><p>위 검색창이나 <b>주변</b> 탭에서<br/>장소를 찾아 저장해보세요 🎀</p></div>`; }
+    if(!savedPlaces.length){ list.innerHTML=`<div class="empty-state"><div class="icon">🔍</div><p>위 검색창이나 <b>주변</b> 탭에서<br/>장소를 찾아 저장해보세요</p></div>`; }
     savedPlaces.forEach(p=>{
       const el=document.createElement('div');
       el.className='place-item'+(p.inRoute?' in-route':'');
@@ -610,8 +589,8 @@ function renderList(){
     });
 
   } else if(currentTab==='nearby'){
-    if(activeCat<0){ list.innerHTML=`<div class="empty-state"><div class="icon">${BIG_KITTY}</div><p>위 카테고리를 눌러<br/>지도 주변 장소를 찾아보세요 🐱</p></div>`; }
-    else if(!nearbyResults.length){ list.innerHTML=`<div class="empty-state"><div class="icon">${BIG_KITTY}</div><p>주변에 결과가 없어요<br/>지도를 옮기고 다시 눌러보세요</p></div>`; }
+    if(activeCat<0){ list.innerHTML=`<div class="empty-state"><div class="icon">🍽️</div><p>위 카테고리를 눌러<br/>지도 주변 장소를 찾아보세요</p></div>`; }
+    else if(!nearbyResults.length){ list.innerHTML=`<div class="empty-state"><div class="icon">🤷</div><p>주변에 결과가 없어요<br/>지도를 옮기고 다시 눌러보세요</p></div>`; }
     else nearbyResults.forEach(r=>{
       const already=savedPlaces.find(p=>p.name===r.name && Math.abs(p.lat-r.lat)<0.0002);
       const el=document.createElement('div'); el.className='place-item';
@@ -671,7 +650,7 @@ function renderList(){
 
     if(!seq.length){
       const hint=document.createElement('div'); hint.className='empty-state'; hint.style.paddingTop='10px';
-      hint.innerHTML=`<div class="icon">${BIG_KITTY}</div><p style="font-size:12.5px;line-height:1.7">저장 탭에서 <b>일정</b> 버튼으로 장소를 추가하고<br/>항목을 <b>꾹 눌러 끌어서</b> 순서·일차를 옮기세요 🎀</p>`;
+      hint.innerHTML=`<div class="icon">📅</div><p style="font-size:12.5px;line-height:1.7">저장 탭에서 <b>일정</b> 버튼으로 장소를 추가하고<br/>항목을 <b>꾹 눌러 끌어서</b> 순서·일차를 옮기세요</p>`;
       list.appendChild(hint);
     }
 
@@ -690,7 +669,7 @@ function refreshRouteMarkers(){
     /* 같은 장소가 일정에 여러 번이면 가장 빠른 순번을 핀에 표시 */
     const gi=seq.findIndex(s=>s.pid===p.id);
     if(gi>=0){ p.marker.setMap(null); const m=new KittyMarker({position:{lat:p.lat,lng:p.lng},map,number:gi+1,title:`${gi+1}. ${p.name}`,zIndex:1000+gi}); m.addListener('click',()=>openSavedIW(p)); routeMarkers.push(m); }
-    else { p.marker.setMap(map); p.marker.setIcon(makeSavedIcon('#ff8fb1')); }
+    else { p.marker.setMap(map); }
   });
 }
 
