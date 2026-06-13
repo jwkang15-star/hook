@@ -106,7 +106,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.6</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.7</h1>
   </div>
 
   <div id="search-bar">
@@ -197,9 +197,22 @@ function applyCloudData(data) {
   renderList(); refreshRouteMarkers();
 }
 function startRealtimeSync() {
-  const stream=new EventSource(DB_URL);
-  stream.addEventListener('put', e=>{ if(isSyncing) return; const d=JSON.parse(e.data).data; if(!d) return; applyCloudData(d); showToast('다른 기기에서 변경됐어요 🔄'); });
-  stream.onerror=()=>stream.close();
+  let stream, firstEvent;
+  function connect() {
+    firstEvent = true;
+    stream = new EventSource(DB_URL);
+    stream.addEventListener('put', e => {
+      if (isSyncing) { firstEvent = false; return; }          // 내가 방금 보낸 변경은 무시
+      let msg; try { msg = JSON.parse(e.data); } catch(_) { return; }
+      if (msg.path && msg.path !== '/') return;                // 전체 데이터 갱신만 처리
+      const d = msg.data; if (!d) return;
+      applyCloudData(d);
+      if (!firstEvent) showToast('다른 기기에서 변경됐어요 🔄'); // 연결 직후 첫 스냅샷엔 알림 안 함
+      firstEvent = false;
+    });
+    stream.onerror = () => { stream.close(); setTimeout(connect, 3000); };  // 끊기면 3초 뒤 재연결
+  }
+  connect();
 }
 
 /* ── 마커 ── */
