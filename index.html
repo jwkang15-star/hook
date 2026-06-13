@@ -106,7 +106,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.9</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.10</h1>
   </div>
 
   <div id="search-bar">
@@ -221,7 +221,8 @@ function makeNumberIcon(color,label){ const svg=`<svg xmlns="http://www.w3.org/2
 function makeNearbyIcon(){ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="6" fill="#1a73e8" stroke="white" stroke-width="2.5"/></svg>`; return { url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(18,18), anchor:new google.maps.Point(9,9) }; }
 
 /* 구글지도 실제 리뷰 페이지 / 길찾기 */
-function gmapsReviewUrl(p){ return p.placeId ? `https://search.google.com/local/reviews?placeid=${p.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name)}`; }
+/* 구글지도 앱으로 열리는 범용 링크 (앱 설치 시 앱, 아니면 웹) */
+function gmapsReviewUrl(p){ const q=encodeURIComponent(p.name); return p.placeId ? `https://www.google.com/maps/search/?api=1&query=${q}&query_place_id=${p.placeId}` : `https://www.google.com/maps/search/?api=1&query=${q}`; }
 function gmapsDirUrl(from,to){ return `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}`; }
 
 function thumbHtml(p){ return p.photoUrl ? `<img class="place-thumb" src="${p.photoUrl}" loading="lazy" />` : `<div class="place-thumb placeholder">📍</div>`; }
