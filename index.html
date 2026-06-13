@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>후쿠오카 여행 지도</title>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', sans-serif; overflow: hidden; }
@@ -64,10 +65,11 @@
     .icon-btn.save { border-color:#1a73e8; color:#1a73e8; }
     .del-btn { background:none; border:none; color:#ccc; font-size:16px; cursor:pointer; padding:3px 5px; border-radius:5px; flex-shrink:0; }
     .del-btn:active { color:#e53935; background:#fdecea; }
-    .drag-handle-icon { color:#ccc; font-size:15px; cursor:grab; flex-shrink:0; }
-    .ord-col { display:flex; flex-direction:column; gap:3px; flex-shrink:0; }
-    .ord-btn { width:24px; height:20px; padding:0; border:1.5px solid #ddd; border-radius:6px; background:#fff; color:#888; font-size:10px; cursor:pointer; line-height:1; }
-    .ord-btn:active { background:#fff0eb; border-color:#ff6b35; color:#ff6b35; }
+    .drag-handle-icon { color:#bbb; font-size:20px; cursor:grab; flex-shrink:0; touch-action:none; padding:0 2px; }
+    .day-items { min-height:14px; padding:2px 0; }
+    .day-items:empty { min-height:42px; border:1.5px dashed #e0e0e0; border-radius:10px; margin-bottom:6px; }
+    .sortable-ghost { opacity:.4; }
+    .sortable-chosen { background:#fff5f0 !important; border-color:#ff6b35 !important; }
 
     /* 일정 (일차) */
     .day-header { display:flex; align-items:center; justify-content:space-between; margin:12px 4px 7px; }
@@ -102,7 +104,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.3</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.4</h1>
   </div>
 
   <div id="search-bar">
@@ -346,50 +348,55 @@ function renderList(){
 
   } else { /* 일정 */
     const seq=routeSeq();
-    if(!seq.length && numDays<=1){
-      list.innerHTML=`<div class="empty-state"><div class="icon">📅</div><p>저장 탭에서 <b>일정</b> 버튼을 눌러<br/>방문할 장소를 추가하세요</p></div>`;
-    }
-    const dayOptions=n=>Array.from({length:numDays},(_,k)=>`<option value="${k+1}" ${n===k+1?'selected':''}>${k+1}일차</option>`).join('');
     for(let d=1; d<=numDays; d++){
       const header=document.createElement('div'); header.className='day-header';
       header.innerHTML=`<span class="day-title">📅 ${d}일차</span>`;
       list.appendChild(header);
+
+      const cont=document.createElement('div'); cont.className='day-items'; cont.dataset.day=d;
       const dayItems=seq.filter(id=>dayOf(id)===d);
-      if(!dayItems.length){ const e=document.createElement('div'); e.className='day-empty'; e.textContent='저장 탭에서 장소를 일정에 추가하세요'; list.appendChild(e); continue; }
       dayItems.forEach((id,di)=>{
         const item=savedPlaces.find(p=>p.id===id); if(!item) return;
-        const gi=seq.indexOf(id);
-        const el=document.createElement('div'); el.className='place-item';
-        el.innerHTML=`<div class="ord-col">
-            <button class="ord-btn" onclick="moveOrder(${item.id},-1,event)" ${di===0?'disabled style="opacity:.3"':''}>▲</button>
-            <button class="ord-btn" onclick="moveOrder(${item.id},1,event)" ${di===dayItems.length-1?'disabled style="opacity:.3"':''}>▼</button>
-          </div>
+        const el=document.createElement('div'); el.className='place-item'; el.dataset.id=item.id;
+        el.innerHTML=`<span class="drag-handle-icon">⠿</span>
           ${thumbHtml(item)}
           <div class="place-info">
             <div class="place-name">${item.name}</div>
             <div class="place-memo ${item.memo?'':'empty'}">📝 ${item.memo||'한 줄 메모...'}</div>
           </div>
-          <select class="day-select" onchange="setPlaceDay(${item.id},this.value)" onclick="event.stopPropagation()">${dayOptions(d)}</select>
           <button class="icon-btn" onclick="editMemo(${item.id},event)">📝</button>
           <button class="del-btn" onclick="removeFromRoute(${item.id},event)">✕</button>`;
-        el.addEventListener('click',e=>{ if(e.target.closest('.icon-btn')||e.target.closest('.day-select')||e.target.closest('.ord-col')||e.target.classList.contains('del-btn')) return; map.panTo({lat:item.lat,lng:item.lng}); map.setZoom(16); openSavedIW(item); });
-        list.appendChild(el);
+        el.addEventListener('click',e=>{ if(e.target.closest('.icon-btn')||e.target.classList.contains('del-btn')||e.target.classList.contains('drag-handle-icon')) return; map.panTo({lat:item.lat,lng:item.lng}); map.setZoom(16); openSavedIW(item); });
+        cont.appendChild(el);
 
         /* 같은 일차 내 다음 장소와의 구간 길찾기 */
         if(di < dayItems.length-1){
           const next=savedPlaces.find(p=>p.id===dayItems[di+1]);
-          const link=document.createElement('a'); link.className='seg-dir-link';
+          const link=document.createElement('a'); link.className='seg-dir-link'; link.dataset.nodrag='1';
           link.href=gmapsDirUrl(item,next); link.target='_blank'; link.rel='noopener';
           link.innerHTML=`🗺 구글지도 길찾기`;
-          list.appendChild(link);
+          cont.appendChild(link);
         }
       });
+      list.appendChild(cont);
     }
-    if(seq.length || numDays>1 || true){
-      const addBtn=document.createElement('button'); addBtn.className='add-day-btn'; addBtn.textContent='+ 일차 추가';
-      addBtn.onclick=()=>{ numDays++; saveToCloud(); renderList(); };
-      list.appendChild(addBtn);
+
+    const addBtn=document.createElement('button'); addBtn.className='add-day-btn'; addBtn.textContent='+ 일차 추가';
+    addBtn.onclick=()=>{ numDays++; saveToCloud(); renderList(); };
+    list.appendChild(addBtn);
+
+    if(!seq.length){
+      const hint=document.createElement('div'); hint.className='empty-state'; hint.style.paddingTop='10px';
+      hint.innerHTML=`<p style="font-size:12.5px;line-height:1.7">저장 탭에서 <b>일정</b> 버튼으로 장소를 추가하고<br/>⠿ 를 잡아 끌어서 순서·일차를 옮기세요</p>`;
+      list.appendChild(hint);
     }
+
+    /* 드래그 정렬: 일차 간 이동 + 순서 변경 */
+    setTimeout(()=>{
+      document.querySelectorAll('.day-items').forEach(cont=>{
+        new Sortable(cont, { group:'itinerary', handle:'.drag-handle-icon', draggable:'.place-item', animation:150, onEnd:rebuildItineraryFromDOM });
+      });
+    },0);
   }
 
   document.getElementById('total-info').textContent=`저장 ${savedPlaces.length}곳 · 일정 ${getRouteItems().length}곳 · ${numDays}일`;
@@ -408,8 +415,20 @@ function refreshRouteMarkers(){
   });
 }
 
-function setPlaceDay(id,day){ const p=savedPlaces.find(x=>x.id===id); if(!p) return; p.day=parseInt(day,10)||1; if(p.day>numDays) numDays=p.day; saveToCloud(); renderList(); refreshRouteMarkers(); }
-function moveOrder(id,dir,e){ if(e) e.stopPropagation(); const seq=routeSeq(); const i=seq.indexOf(id); const j=i+dir; if(j<0||j>=seq.length) return; if(dayOf(seq[j])!==dayOf(id)) return; [seq[i],seq[j]]=[seq[j],seq[i]]; routeOrder=seq; saveToCloud(); renderList(); refreshRouteMarkers(); }
+/* 드래그 후 DOM 순서/일차로 상태 재구성 */
+function rebuildItineraryFromDOM(){
+  const newOrder=[];
+  document.querySelectorAll('.day-items').forEach(cont=>{
+    const d=parseInt(cont.dataset.day,10)||1;
+    cont.querySelectorAll('.place-item').forEach(el=>{
+      const id=parseInt(el.dataset.id,10);
+      const p=savedPlaces.find(x=>x.id===id);
+      if(p){ p.day=d; newOrder.push(id); }
+    });
+  });
+  routeOrder=newOrder;
+  saveToCloud(); renderList(); refreshRouteMarkers();
+}
 function editMemo(id,e){ if(e) e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; const v=prompt(`"${p.name}" 메모`,p.memo||''); if(v===null) return; p.memo=v.trim(); saveToCloud(); renderList(); }
 function toggleRoute(id,e){ e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; if(p.inRoute){ routeOrder=routeOrder.filter(x=>x!==id); p.inRoute=false; showToast('일정에서 제거됐어요'); } else { routeOrder.push(id); p.inRoute=true; if(!p.day) p.day=1; showToast(`"${p.name}" 일정 추가 ✅`); } saveToCloud(); renderList(); refreshRouteMarkers(); }
 function addToRoute(id){ const p=savedPlaces.find(x=>x.id===id); if(!p||p.inRoute) return; routeOrder.push(id); p.inRoute=true; if(!p.day) p.day=1; showToast(`"${p.name}" 일정 추가 ✅`); if(openInfoWindow) openInfoWindow.close(); saveToCloud(); renderList(); refreshRouteMarkers(); }
