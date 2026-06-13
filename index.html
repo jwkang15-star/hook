@@ -73,8 +73,8 @@
 
     #footer { padding:8px 10px; background:#f8f9fa; border-top:1px solid #eee; flex-shrink:0; }
     #total-info { font-weight:700; color:#444; font-size:12px; margin-bottom:6px; }
-    #gmaps-route-btn { display:none; width:100%; padding:11px; background:#1a73e8; color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; }
-    #gmaps-route-btn:active { background:#1557b0; }
+    .seg-dir-link { display:block; text-align:center; margin:-1px 28px 7px; padding:8px; background:#e8f0fe; color:#1a73e8; font-size:12px; font-weight:700; border-radius:9px; text-decoration:none; }
+    .seg-dir-link:active { background:#d2e3fc; }
 
     @media (min-width: 769px) {
       #panel { position:fixed; top:0; left:0; bottom:0; right:auto; width:340px; height:100vh; border-radius:0; box-shadow:2px 0 16px rgba(0,0,0,.15); transition:none; }
@@ -93,7 +93,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.0</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.1</h1>
   </div>
 
   <div id="search-bar">
@@ -112,7 +112,6 @@
 
   <div id="footer">
     <div id="total-info">저장 0곳</div>
-    <button id="gmaps-route-btn" onclick="openRouteInGmaps()">🗺 구글지도에서 길찾기</button>
   </div>
 </div>
 
@@ -347,7 +346,6 @@ function switchTab(tab) {
 function renderList() {
   const list = document.getElementById('place-list');
   list.innerHTML = '';
-  document.getElementById('gmaps-route-btn').style.display = (currentTab==='route') ? 'block' : 'none';
 
   if (currentTab === 'places') {
     if (!savedPlaces.length) { list.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>위 검색창이나 <b>주변</b> 탭에서<br/>장소를 찾아 저장해보세요</p></div>`; }
@@ -410,6 +408,17 @@ function renderList() {
       el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
       el.addEventListener('drop', e => { e.preventDefault(); el.classList.remove('drag-over'); if (dragSrcIdx===null||dragSrcIdx===i) return; const arr=[...routeOrder],[mv]=arr.splice(dragSrcIdx,1); arr.splice(i,0,mv); routeOrder=arr; savedPlaces.forEach(p=>{p.inRoute=routeOrder.includes(p.id);}); saveToCloud();renderList();refreshRouteMarkers(); dragSrcIdx=null; });
       list.appendChild(el);
+
+      /* 두 지점 사이 구간만 구글지도 길찾기 */
+      if (i < items.length - 1) {
+        const next = items[i+1];
+        const link = document.createElement('a');
+        link.className = 'seg-dir-link';
+        link.href = gmapsDirUrl(item, next);
+        link.target = '_blank'; link.rel = 'noopener';
+        link.innerHTML = `🗺 ${i+1} → ${i+2} 구글지도 길찾기`;
+        list.appendChild(link);
+      }
     });
   }
 
@@ -451,16 +460,9 @@ function addToRoute(id) { const p=savedPlaces.find(x=>x.id===id); if(!p||p.inRou
 function removeFromRoute(idx,e) { e.stopPropagation(); const id=routeOrder[idx]; routeOrder.splice(idx,1); const p=savedPlaces.find(x=>x.id===id); if(p) p.inRoute=false; saveToCloud();renderList();refreshRouteMarkers(); }
 function deleteSavedPlace(id,e) { e.stopPropagation(); const idx=savedPlaces.findIndex(p=>p.id===id); if(idx===-1) return; savedPlaces[idx].marker.setMap(null); routeOrder=routeOrder.filter(x=>x!==id); savedPlaces.splice(idx,1); saveToCloud();renderList();refreshRouteMarkers(); showToast('장소가 삭제됐어요'); }
 
-/* ── 구글지도 길찾기 (전체 경로) ── */
-function openRouteInGmaps() {
-  const items = getRouteItems();
-  if (items.length < 2) { showToast('경로에 2곳 이상 추가하세요'); return; }
-  const origin = `${items[0].lat},${items[0].lng}`;
-  const dest   = `${items[items.length-1].lat},${items[items.length-1].lng}`;
-  const way    = items.slice(1,-1).map(p=>`${p.lat},${p.lng}`).join('|');
-  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}`;
-  if (way) url += `&waypoints=${encodeURIComponent(way)}`;
-  window.open(url, '_blank');
+/* ── 구글지도 길찾기 (두 지점 구간) ── */
+function gmapsDirUrl(from, to) {
+  return `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${to.lat},${to.lng}`;
 }
 
 let toastTimer;
