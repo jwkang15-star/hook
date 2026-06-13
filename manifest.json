@@ -1,0 +1,18 @@
+{
+  "name": "키티 여행 지도",
+  "short_name": "여행지도",
+  "lang": "ko",
+  "dir": "ltr",
+  "description": "후쿠오카 여행 장소 저장·일정 지도",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffeef5",
+  "theme_color": "#ff5d8f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
