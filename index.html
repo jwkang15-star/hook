@@ -179,7 +179,7 @@
   <div id="drag-handle">
     <div id="drag-bar"></div>
     <img id="hdr-kitty" src="icon.png" alt="" />
-    <h1>후쿠오카 여행 지도</h1><!-- v3.28 -->
+    <h1>후쿠오카 여행 지도</h1><!-- v3.29 -->
   </div>
 
   <div id="search-bar">
@@ -713,8 +713,8 @@ function renderList(){
         el.addEventListener('click',e=>{ if(e.target.closest('.icon-btn')||e.target.classList.contains('del-btn')||e.target.classList.contains('drag-handle-icon')) return; map.panTo({lat:item.lat,lng:item.lng}); map.setZoom(16); openSavedIW(item); });
         cont.appendChild(el);
 
-        /* 같은 일차 내 다음 장소와의 구간 길찾기 */
-        if(di < dayStops.length-1){
+        /* 같은 일차 내 다음 장소와의 구간 길찾기 (미정 d=0 은 순서 미확정이라 제외) */
+        if(d!==0 && di < dayStops.length-1){
           const next=placeOf(dayStops[di+1]);
           const link=document.createElement('a'); link.className='seg-dir-link'; link.dataset.nodrag='1';
           link.href=gmapsDirUrl(item,next); link.target='_blank'; link.rel='noopener';
