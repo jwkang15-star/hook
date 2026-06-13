@@ -108,7 +108,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.12</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.13</h1>
   </div>
 
   <div id="search-bar">
@@ -142,6 +142,8 @@ window.gm_authFailure = function() {
 const ROUTE_COLORS = ['#e53935','#1e88e5','#43a047','#fb8c00','#8e24aa','#00acc1','#f4511e','#546e7a'];
 const getRouteColor = i => ROUTE_COLORS[i % ROUTE_COLORS.length];
 const DB_URL = 'https://jwkang15-1664c-default-rtdb.asia-southeast1.firebasedatabase.app/mapData.json';
+/* 배포한 Cloudflare Worker 주소를 여기에 넣으세요 (예: 'https://maps-list.xxxx.workers.dev') */
+const LIST_WORKER = '';
 
 const CATEGORIES = [
   { label:'🍽️ 음식점', type:'restaurant' },
@@ -357,6 +359,16 @@ function parseMapsUrl(s){
 
 async function importFromLink(url){
   showToast('링크 분석 중...');
+
+  /* Worker가 설정돼 있으면: 저장 목록/단일 장소 모두 Worker로 처리 */
+  if(LIST_WORKER){
+    try{
+      const r=await fetch(LIST_WORKER+'?url='+encodeURIComponent(url));
+      const j=await r.json();
+      if(j && j.places && j.places.length){ batchImportPlaces(j.places, j.title||''); return; }
+    }catch(e){ /* Worker 실패 시 아래 클라이언트 파싱으로 폴백 */ }
+  }
+
   let {name,lat,lng,placeId}=parseMapsUrl(url);
 
   /* 짧은 링크거나 좌표/이름을 못 찾으면 프록시로 펼쳐서 재시도 */
@@ -372,6 +384,24 @@ async function importFromLink(url){
     }catch(e){ /* 프록시 실패 */ }
   }
   finalizeImport(name,lat,lng,placeId);
+}
+
+/* 목록에서 받은 장소들을 한 번에 저장 */
+function batchImportPlaces(places, title){
+  let added=0;
+  places.forEach(p=>{
+    if(!p.name || p.lat==null || p.lng==null) return;
+    if(savedPlaces.find(x=>x.name===p.name && Math.abs(x.lat-p.lat)<0.0002)) return;
+    const id=++placeIdCounter;
+    const marker=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map,icon:makeSavedIcon('#aaa'),title:p.name,zIndex:100});
+    const place={id,name:p.name,address:p.address||'',rating:p.rating||'',lat:p.lat,lng:p.lng,placeId:p.placeId||'',photoUrl:p.photoUrl||'',memo:'',day:1,marker,inRoute:false};
+    marker.addListener('click',()=>openSavedIW(place));
+    savedPlaces.push(place); added++;
+  });
+  if(added) saveToCloud();
+  switchTab('places');
+  const b=new google.maps.LatLngBounds(); places.forEach(p=>b.extend({lat:p.lat,lng:p.lng})); map.fitBounds(b,{top:50,right:50,bottom:50,left:50});
+  showToast(`${title?title+' · ':''}${added}곳 저장됐어요 📍${added<places.length?` (중복 ${places.length-added} 제외)`:''}`);
 }
 
 function addFromPlaceResult(d){
