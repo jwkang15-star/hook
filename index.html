@@ -111,16 +111,9 @@
     .day-header .day-title { font-size:16px; font-weight:700; letter-spacing:-.4px; color:var(--text); flex:1; }
     .day-collapse { background:none; border:none; cursor:pointer; color:var(--accent); font-size:15px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:transform .25s cubic-bezier(.32,.72,0,1); }
     .day-collapse.collapsed { transform:rotate(-90deg); }
-    .day-count { font-size:11.5px; color:var(--text2); font-weight:600; background:var(--fill); padding:2px 9px; border-radius:10px; flex-shrink:0; }
-    .day-memo-btn { background:var(--fill); border:none; border-radius:9px; color:var(--accent); font-size:13px; padding:6px 9px; cursor:pointer; flex-shrink:0; transition:transform .12s; }
-    .day-memo-btn:active { transform:scale(.9); }
     .day-del-btn { background:var(--fill); border:none; border-radius:9px; color:var(--text2); font-size:13px; font-weight:600; padding:6px 9px; cursor:pointer; flex-shrink:0; }
     .day-del-btn:active { background:rgba(255,79,135,.1); color:var(--danger); }
-    /* 일차 메모 */
-    .day-memo { margin:0 4px 11px; background:var(--card); border:.5px solid rgba(255,93,143,.14); border-radius:14px; padding:10px 13px; font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; cursor:pointer; box-shadow:0 1px 5px rgba(255,93,143,.08); display:-webkit-box; -webkit-line-clamp:6; line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; transition:background .15s; }
-    .day-memo:active { background:#fff5fa; }
-    .day-memo.empty { padding:8px 13px; font-size:12px; color:var(--text3); background:transparent; border:1px dashed rgba(255,93,143,.22); box-shadow:none; -webkit-line-clamp:1; line-clamp:1; }
-    .day-block.collapsed .day-memo, .day-block.collapsed .day-items { display:none; }
+    .day-block.collapsed .day-items { display:none; }
     /* 메모 편집 시트 */
     .modal-overlay { position:fixed; inset:0; z-index:9500; background:rgba(74,44,58,.34); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity .25s; }
     .modal-overlay.show { opacity:1; pointer-events:auto; }
@@ -172,7 +165,7 @@
   <div id="drag-handle">
     <div id="drag-bar"></div>
     <img id="hdr-kitty" src="icon.png" alt="" />
-    <h1>후쿠오카 여행 지도</h1><!-- v3.24 -->
+    <h1>후쿠오카 여행 지도</h1><!-- v3.25 -->
   </div>
 
   <div id="search-bar">
@@ -238,7 +231,6 @@ const CATEGORIES = [
 
 let map, placesService, autocomplete;
 let savedPlaces = [], routeStops = [], numDays = 1;
-let dayMemos = {};                 // { 일차번호: 메모텍스트 } — 클라우드 동기화
 let collapsedDays = new Set();      // 접힌 일차 (로컬 표시 상태)
 let routeMarkers = [], nearbyMarkers = [], nearbyResults = [];
 let openInfoWindow = null, currentTab = 'places', activeCat = -1;
@@ -263,7 +255,7 @@ function saveToCloud() {
     const data = {
       places: savedPlaces.map(p => ({ id:p.id, name:p.name, address:p.address, rating:p.rating, lat:p.lat, lng:p.lng, memo:p.memo||'', placeId:p.placeId||'', photoUrl:p.photoUrl||'' })),
       routeStops: routeStops.map(s => ({ sid:s.sid, pid:s.pid, day:s.day })),
-      dayMemos, numDays, placeIdCounter, stopIdCounter
+      numDays, placeIdCounter, stopIdCounter
     };
     try { isSyncing=true; await fetch(DB_URL,{method:'PUT',body:JSON.stringify(data)}); setTimeout(()=>{isSyncing=false;},1500); }
     catch(e){ isSyncing=false; }
@@ -279,7 +271,6 @@ function applyCloudData(data) {
   savedPlaces=[]; routeStops=[]; routeMarkers=[];
   if(data.placeIdCounter) placeIdCounter=data.placeIdCounter;
   if(data.stopIdCounter) stopIdCounter=data.stopIdCounter;
-  dayMemos = (data.dayMemos && typeof data.dayMemos==='object') ? data.dayMemos : {};
   numDays = data.numDays || 1;
   if(Array.isArray(data.places)) data.places.forEach(p=>restorePlace(p));
   if(Array.isArray(data.routeStops)){
@@ -661,17 +652,8 @@ function renderList(){
       const header=document.createElement('div'); header.className='day-header';
       header.innerHTML=`<button class="day-collapse ${collapsed?'collapsed':''}" onclick="toggleDayCollapse(${d},event)" aria-label="접기">▾</button>
         <span class="day-title">${d}일차</span>
-        <span class="day-count">${dayStops.length}곳</span>
-        <button class="day-memo-btn" onclick="editDayMemo(${d},event)" title="이 날 메모">📝</button>
         ${numDays>1?`<button class="day-del-btn" onclick="deleteDay(${d},event)" title="일차 삭제">🗑</button>`:''}`;
       block.appendChild(header);
-
-      const memoText=dayMemos[d];
-      const memoEl=document.createElement('div');
-      memoEl.className='day-memo'+(memoText?'':' empty');
-      memoEl.textContent = memoText || '📝 이 날의 메모 추가...';
-      memoEl.onclick = e=>editDayMemo(d,e);
-      block.appendChild(memoEl);
 
       const cont=document.createElement('div'); cont.className='day-items'; cont.dataset.day=d;
       dayStops.forEach((s,di)=>{
@@ -752,12 +734,10 @@ function deleteDay(d,e){
   if(e) e.stopPropagation();
   if(numDays<=1){ showToast('최소 1일차는 있어야 해요'); return; }
   const hasStops = routeStops.some(s=>s.day===d);
-  const hasMemo = !!dayMemos[d];
-  if((hasStops||hasMemo) && !confirm(`${d}일차의 장소·메모를 빼고 일차를 삭제할까요?`)) return;
+  if(hasStops && !confirm(`${d}일차의 장소들을 일정에서 빼고 일차를 삭제할까요?`)) return;
   routeStops = routeStops.filter(s=>s.day!==d);   /* 해당 일차 stop 제거 */
   routeStops.forEach(s=>{ if(s.day>d) s.day--; }); /* 뒤 일차 한 칸씩 당김 */
-  /* 일차 메모/접힘 상태도 한 칸씩 당김 */
-  const nm={}; Object.keys(dayMemos).forEach(k=>{ k=+k; if(k<d) nm[k]=dayMemos[k]; else if(k>d) nm[k-1]=dayMemos[k]; }); dayMemos=nm;
+  /* 접힘 상태도 한 칸씩 당김 */
   const nc=new Set(); collapsedDays.forEach(k=>{ if(k<d) nc.add(k); else if(k>d) nc.add(k-1); }); collapsedDays=nc;
   numDays--;
   syncInRoute(); saveToCloud(); renderList(); refreshRouteMarkers();
@@ -793,11 +773,9 @@ function saveMemoModal(){
   if(!memoCtx){ closeMemoModal(); return; }
   const v=document.getElementById('memo-textarea').value.replace(/\s+$/,'');
   if(memoCtx.type==='place'){ const p=savedPlaces.find(x=>x.id===memoCtx.id); if(p) p.memo=v; }
-  else if(memoCtx.type==='day'){ if(v) dayMemos[memoCtx.day]=v; else delete dayMemos[memoCtx.day]; }
   closeMemoModal(); saveToCloud(); renderList();
 }
 function editMemo(id,e){ if(e) e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; openMemoModal({type:'place',id}, '📝 메모', p.name, p.memo||''); }
-function editDayMemo(d,e){ if(e) e.stopPropagation(); openMemoModal({type:'day',day:d}, `📝 ${d}일차 메모`, '이 날의 메모를 자유롭게 적어보세요', dayMemos[d]||''); }
 function toggleDayCollapse(d,e){ if(e) e.stopPropagation(); if(collapsedDays.has(d)) collapsedDays.delete(d); else collapsedDays.add(d); renderList(); }
 /* 저장 탭의 '일정' 토글: 일정에 없으면 1개 추가, 있으면 해당 장소의 stop 전부 제거 */
 function toggleRoute(id,e){ e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; if(routeStops.some(s=>s.pid===id)){ routeStops=routeStops.filter(s=>s.pid!==id); showToast('일정에서 제거됐어요'); } else { addStop(id,1); showToast(`"${p.name}" 일정 추가 ✅`); } syncInRoute(); saveToCloud(); renderList(); refreshRouteMarkers(); }
