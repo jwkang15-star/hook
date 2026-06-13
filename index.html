@@ -179,7 +179,7 @@
   <div id="drag-handle">
     <div id="drag-bar"></div>
     <img id="hdr-kitty" src="icon.png" alt="" />
-    <h1>후쿠오카 여행 지도</h1><!-- v3.27 -->
+    <h1>후쿠오카 여행 지도</h1><!-- v3.28 -->
   </div>
 
   <div id="search-bar">
@@ -268,7 +268,7 @@ function saveToCloud() {
   saveTimer = setTimeout(async () => {
     const data = {
       places: savedPlaces.map(p => ({ id:p.id, name:p.name, address:p.address, rating:p.rating, lat:p.lat, lng:p.lng, memo:p.memo||'', placeId:p.placeId||'', photoUrl:p.photoUrl||'' })),
-      routeStops: routeStops.map(s => ({ sid:s.sid, pid:s.pid, day:s.day })),
+      routeStops: routeStops.map(s => ({ sid:s.sid, pid:s.pid, day:s.day, memo:s.memo||'' })),
       numDays, placeIdCounter, stopIdCounter
     };
     try { isSyncing=true; await fetch(DB_URL,{method:'PUT',body:JSON.stringify(data)}); setTimeout(()=>{isSyncing=false;},1500); }
@@ -288,12 +288,14 @@ function applyCloudData(data) {
   numDays = data.numDays || 1;
   if(Array.isArray(data.places)) data.places.forEach(p=>restorePlace(p));
   if(Array.isArray(data.routeStops)){
-    routeStops = data.routeStops.map(s=>({ sid:s.sid, pid:s.pid, day:s.day===undefined?1:s.day }));
+    /* 구데이터(stop별 memo 없음) → 장소 메모를 한 번 복사해 옮긴 뒤 이후엔 개별 관리 */
+    routeStops = data.routeStops.map(s=>({ sid:s.sid, pid:s.pid, day:s.day===undefined?1:s.day,
+      memo: s.memo!==undefined ? s.memo : (savedPlaces.find(p=>p.id===s.pid)?.memo || '') }));
   } else if(Array.isArray(data.routeOrder)){
     /* 구버전(routeOrder=장소ID 배열, 일차는 장소에 저장) → stop 구조로 마이그레이션 */
     routeStops = data.routeOrder.map(pid=>{
       const op=(data.places||[]).find(p=>p.id===pid);
-      return { sid:++stopIdCounter, pid, day:(op&&op.day)||1 };
+      return { sid:++stopIdCounter, pid, day:(op&&op.day)||1, memo:(op&&op.memo)||'' };
     });
   }
   routeStops.forEach(s=>{ if(s.sid>stopIdCounter) stopIdCounter=s.sid; });
@@ -633,8 +635,8 @@ function byNameOrCoords(name,lat,lng){
 function placeOf(s){ return savedPlaces.find(p=>p.id===s.pid); }
 function routeSeq(){ return [...routeStops].sort((a,b)=>a.day-b.day); }  /* 일차 우선, 같은 일차 내 삽입순 유지(stable) */
 function syncInRoute(){ savedPlaces.forEach(p=>{ p.inRoute = routeStops.some(s=>s.pid===p.id); }); }
-/* day=0 은 '미정'(아직 일차 미배정). 일정 추가 시 기본값 */
-function addStop(pid, day=0){ const s={ sid:++stopIdCounter, pid, day }; routeStops.push(s); return s; }
+/* day=0 은 '미정'(아직 일차 미배정). 일정 추가 시 기본값. memo는 stop별 개별 보관 */
+function addStop(pid, day=0){ const s={ sid:++stopIdCounter, pid, day, memo:'' }; routeStops.push(s); return s; }
 
 function renderList(){
   const list=document.getElementById('place-list');
@@ -703,10 +705,10 @@ function renderList(){
           ${thumbHtml(item)}
           <div class="place-info">
             <div class="place-name">${item.name}</div>
-            ${item.memo?`<div class="place-memo">${item.memo}</div>`:''}
+            ${s.memo?`<div class="place-memo">${s.memo}</div>`:''}
           </div>
           <button class="icon-btn" onclick="duplicateStop(${s.sid},event)" title="같은 장소 한 번 더 추가">＋</button>
-          <button class="icon-btn" onclick="editMemo(${item.id},event)">📝</button>
+          <button class="icon-btn" onclick="editStopMemo(${s.sid},event)">📝</button>
           <button class="del-btn" onclick="removeStop(${s.sid},event)">✕</button>`;
         el.addEventListener('click',e=>{ if(e.target.closest('.icon-btn')||e.target.classList.contains('del-btn')||e.target.classList.contains('drag-handle-icon')) return; map.panTo({lat:item.lat,lng:item.lng}); map.setZoom(16); openSavedIW(item); });
         cont.appendChild(el);
@@ -817,16 +819,19 @@ function saveMemoModal(){
   if(!memoCtx){ closeMemoModal(); return; }
   const v=document.getElementById('memo-textarea').value.replace(/\s+$/,'');
   if(memoCtx.type==='place'){ const p=savedPlaces.find(x=>x.id===memoCtx.id); if(p) p.memo=v; }
+  else if(memoCtx.type==='stop'){ const s=routeStops.find(x=>x.sid===memoCtx.sid); if(s) s.memo=v; }
   closeMemoModal(); saveToCloud(); renderList();
 }
 function editMemo(id,e){ if(e) e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; openMemoModal({type:'place',id}, p.name, '', p.memo||''); }
+/* 일정 항목(stop)별 개별 메모 — 같은 장소를 여러 번 넣어도 따로 작성됨 */
+function editStopMemo(sid,e){ if(e) e.stopPropagation(); const s=routeStops.find(x=>x.sid===sid); if(!s) return; const p=savedPlaces.find(x=>x.id===s.pid); openMemoModal({type:'stop',sid}, p?p.name:'메모', '', s.memo||''); }
 function toggleDayCollapse(d,e){ if(e) e.stopPropagation(); if(collapsedDays.has(d)) collapsedDays.delete(d); else collapsedDays.add(d); renderList(); }
 /* 저장 탭의 '일정' 토글: 일정에 없으면 1개 추가, 있으면 해당 장소의 stop 전부 제거 */
 function toggleRoute(id,e){ e.stopPropagation(); const p=savedPlaces.find(x=>x.id===id); if(!p) return; if(routeStops.some(s=>s.pid===id)){ routeStops=routeStops.filter(s=>s.pid!==id); showToast('일정에서 제거됐어요'); } else { addStop(id,0); showToast(`"${p.name}" 일정 추가 ✅`); } syncInRoute(); saveToCloud(); renderList(); refreshRouteMarkers(); }
 /* 핀/검색결과 InfoWindow의 '+ 일정에 추가': 누를 때마다 stop 1개씩 추가(중복 허용) */
 function addToRoute(id){ const p=savedPlaces.find(x=>x.id===id); if(!p) return; addStop(id,0); syncInRoute(); showToast(`"${p.name}" 일정 추가 ✅`); if(openInfoWindow) openInfoWindow.close(); saveToCloud(); renderList(); refreshRouteMarkers(); }
 /* 일정 항목의 ＋: 같은 장소를 바로 뒤에 한 번 더 추가 */
-function duplicateStop(sid,e){ if(e) e.stopPropagation(); const i=routeStops.findIndex(s=>s.sid===sid); if(i<0) return; const s=routeStops[i]; routeStops.splice(i+1,0,{ sid:++stopIdCounter, pid:s.pid, day:s.day }); syncInRoute(); saveToCloud(); renderList(); refreshRouteMarkers(); const p=savedPlaces.find(x=>x.id===s.pid); showToast(`"${p?p.name:''}" 하나 더 추가됐어요`); }
+function duplicateStop(sid,e){ if(e) e.stopPropagation(); const i=routeStops.findIndex(s=>s.sid===sid); if(i<0) return; const s=routeStops[i]; routeStops.splice(i+1,0,{ sid:++stopIdCounter, pid:s.pid, day:s.day, memo:s.memo||'' }); syncInRoute(); saveToCloud(); renderList(); refreshRouteMarkers(); const p=savedPlaces.find(x=>x.id===s.pid); showToast(`"${p?p.name:''}" 하나 더 추가됐어요`); }
 /* 일정 항목의 ✕: 해당 stop 하나만 제거 */
 function removeStop(sid,e){ if(e) e.stopPropagation(); routeStops=routeStops.filter(s=>s.sid!==sid); syncInRoute(); saveToCloud(); renderList(); refreshRouteMarkers(); }
 function deleteSavedPlace(id,e){ if(e) e.stopPropagation(); const idx=savedPlaces.findIndex(p=>p.id===id); if(idx===-1) return; savedPlaces[idx].marker.setMap(null); routeStops=routeStops.filter(s=>s.pid!==id); savedPlaces.splice(idx,1); if(openInfoWindow) openInfoWindow.close(); saveToCloud(); renderList(); refreshRouteMarkers(); showToast('장소가 삭제됐어요'); }
