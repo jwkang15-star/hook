@@ -108,7 +108,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.13</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.14</h1>
   </div>
 
   <div id="search-bar">
@@ -142,8 +142,8 @@ window.gm_authFailure = function() {
 const ROUTE_COLORS = ['#e53935','#1e88e5','#43a047','#fb8c00','#8e24aa','#00acc1','#f4511e','#546e7a'];
 const getRouteColor = i => ROUTE_COLORS[i % ROUTE_COLORS.length];
 const DB_URL = 'https://jwkang15-1664c-default-rtdb.asia-southeast1.firebasedatabase.app/mapData.json';
-/* 배포한 Cloudflare Worker 주소를 여기에 넣으세요 (예: 'https://maps-list.xxxx.workers.dev') */
-const LIST_WORKER = '';
+/* 배포한 Cloudflare Worker 주소 */
+const LIST_WORKER = 'https://soft-mode-8af0.jwkang15.workers.dev';
 
 const CATEGORIES = [
   { label:'🍽️ 음식점', type:'restaurant' },
