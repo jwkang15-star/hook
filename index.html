@@ -106,7 +106,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.10</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.11</h1>
   </div>
 
   <div id="search-bar">
@@ -234,7 +234,7 @@ function buildSavedIW(p){
     ${p.rating?`<div style="font-size:11px;color:#f59e0b;margin:3px 0">${p.rating}</div>`:''}
     ${p.address?`<div style="font-size:10px;color:#999;margin-bottom:6px">${p.address}</div>`:''}
     ${p.memo?`<div style="font-size:11px;color:#1a73e8;margin-bottom:6px">📝 ${p.memo}</div>`:''}
-    <a href="${gmapsReviewUrl(p)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">⭐ 구글 리뷰 보기</a>
+    <a href="${gmapsReviewUrl(p)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
     <button onclick="addToRoute(${p.id})" style="background:#ff6b35;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 일정에 추가</button>
   </div>`;
 }
@@ -261,33 +261,27 @@ function initMap(){
 }
 function renderCategoryBar(){ document.getElementById('category-bar').innerHTML=CATEGORIES.map((c,i)=>`<div class="cat-chip" onclick="runCategory(${i})">${c.label}</div>`).join(''); }
 
-/* 현재 지도 화면을 덮는 반경(m) 계산 */
-function viewportRadius(){
-  const b=map.getBounds(); if(!b) return 1500;
-  const c=b.getCenter(), ne=b.getNorthEast();
-  const R=6371000, toRad=x=>x*Math.PI/180;
-  const dLat=toRad(ne.lat()-c.lat()), dLng=toRad(ne.lng()-c.lng());
-  const a=Math.sin(dLat/2)**2+Math.cos(toRad(c.lat()))*Math.cos(toRad(ne.lat()))*Math.sin(dLng/2)**2;
-  return Math.min(Math.round(2*R*Math.asin(Math.sqrt(a))), 50000);
-}
-
-/* ── 주변 카테고리 검색 (페이지 넘겨 최대 60개) ── */
+/* ── 주변 카테고리 검색 (현재 화면 영역 안, 가까운 곳부터 최대 60개) ── */
 function runCategory(i){
   activeCat=i;
   document.querySelectorAll('.cat-chip').forEach((el,idx)=>el.classList.toggle('active',idx===i));
   currentTab='nearby';
   document.querySelectorAll('.tab').forEach((t,idx)=>t.classList.toggle('active',['places','nearby','route'][idx]==='nearby'));
   const cat=CATEGORIES[i];
-  const req={ location:map.getCenter(), radius:viewportRadius(), type:cat.type };
+  const bounds=map.getBounds();   /* 검색 시점의 화면 영역 고정 */
+  const req={ location:map.getCenter(), rankBy:google.maps.places.RankBy.DISTANCE, type:cat.type };
   if(cat.keyword) req.keyword=cat.keyword;
-  document.getElementById('place-list').innerHTML=`<div class="empty-state"><div class="icon">🔍</div><p>주변 ${cat.label} 검색 중...</p></div>`;
+  document.getElementById('place-list').innerHTML=`<div class="empty-state"><div class="icon">🔍</div><p>화면 안 ${cat.label} 검색 중...</p></div>`;
 
   clearNearbyMarkers(); nearbyResults=[];
   const seen=new Set();
   let pages=0;
   const addResults=results=>{
     results.forEach(r=>{
-      if(!r.geometry||seen.has(r.place_id)) return; seen.add(r.place_id);
+      if(!r.geometry||seen.has(r.place_id)) return;
+      /* 현재 화면(bounds) 안에 있는 장소만 */
+      if(bounds && !bounds.contains(r.geometry.location)) return;
+      seen.add(r.place_id);
       const obj={ name:r.name, lat:r.geometry.location.lat(), lng:r.geometry.location.lng(), address:r.vicinity||'', rating:r.rating?`⭐ ${r.rating} (${r.user_ratings_total||0})`:'', placeId:r.place_id||'', photoUrl:r.photos?.[0]?.getUrl({maxWidth:400,maxHeight:300})||'' };
       const m=new google.maps.Marker({position:{lat:obj.lat,lng:obj.lng},map,icon:makeNearbyIcon(),title:obj.name,zIndex:50});
       m.addListener('click',()=>{map.panTo({lat:obj.lat,lng:obj.lng});openNearbyIW(obj,m);});
@@ -312,7 +306,7 @@ function openNearbyIW(r,marker){
     <b style="font-size:13px">${r.name}</b>
     ${r.rating?`<div style="font-size:11px;color:#f59e0b;margin:3px 0">${r.rating}</div>`:''}
     ${r.address?`<div style="font-size:10px;color:#999;margin-bottom:6px">${r.address}</div>`:''}
-    <a href="${gmapsReviewUrl(r)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">⭐ 구글 리뷰 보기</a>
+    <a href="${gmapsReviewUrl(r)}" target="_blank" rel="noopener" style="display:block;text-align:center;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:6px 0;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:5px">🗺 구글지도에서 보기</a>
     <button onclick="saveNearbyEnc('${encodeURIComponent(JSON.stringify({name:r.name,lat:r.lat,lng:r.lng,address:r.address,rating:r.rating,placeId:r.placeId,photoUrl:r.photoUrl}))}')" style="background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;width:100%;font-weight:700">+ 내 장소로 저장</button>
   </div>`});
   iw.open(map,marker); openInfoWindow=iw;
