@@ -106,7 +106,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.7</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.8</h1>
   </div>
 
   <div id="search-bar">
@@ -436,6 +436,7 @@ function initSortables(){
       animation:150, forceFallback:true, fallbackOnBody:true, fallbackTolerance:5,
       delay:200, delayOnTouchOnly:true,
       filter:'.icon-btn,.del-btn,a',  /* 버튼/링크는 드래그 시작 안 함 */
+      preventOnFilter:false,          /* 버튼 탭(클릭)을 가로채지 않음 */
       onEnd:rebuildItineraryFromDOM
     }));
   });
