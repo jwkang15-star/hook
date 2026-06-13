@@ -108,7 +108,7 @@
 <div id="panel">
   <div id="drag-handle">
     <div id="drag-bar"></div>
-    <h1>🇯🇵 후쿠오카 여행 지도 v3.16</h1>
+    <h1>🇯🇵 후쿠오카 여행 지도 v3.17</h1>
   </div>
 
   <div id="search-bar">
@@ -262,7 +262,8 @@ function restorePlace(p){
   marker.addListener('click',()=>openSavedIW(place));
   savedPlaces.push(place);
 }
-function openSavedIW(p){ if(openInfoWindow) openInfoWindow.close(); const iw=new google.maps.InfoWindow({content:buildSavedIW(p)}); iw.open(map,p.marker); openInfoWindow=iw; }
+/* 좌표 기준으로 열어 저장 마커/번호(일정) 마커 어느 쪽이 떠 있어도 동작 */
+function openSavedIW(p){ if(openInfoWindow) openInfoWindow.close(); const iw=new google.maps.InfoWindow({content:buildSavedIW(p), position:{lat:p.lat,lng:p.lng}}); iw.open(map); openInfoWindow=iw; }
 
 /* ── 초기화 ── */
 function initMap(){
